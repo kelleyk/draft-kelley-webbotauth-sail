@@ -2,7 +2,7 @@
 title: "SAIL: Source Address Identity List"
 abbrev: "SAIL"
 category: std
-docname: draft-kelley-webbotauth-sail-00
+docname: draft-kelley-webbotauth-sail-latest
 submissiontype: IETF
 v: 3
 area: "Web and Internet Transport"

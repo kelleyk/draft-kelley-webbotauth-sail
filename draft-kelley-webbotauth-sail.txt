@@ -9,7 +9,7 @@ Expires: 25 April 2027
 
 
                    SAIL: Source Address Identity List
-                    draft-kelley-webbotauth-sail-00
+                  draft-kelley-webbotauth-sail-latest
 
 Abstract
 
@@ -1109,4 +1109,4 @@ Author's Address
 
    Kevin Kelley
    Anthropic
-   Email: kelleyk@anthropic.com
+   Email: kelleyk-ietf@kelleyk.net

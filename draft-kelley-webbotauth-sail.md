@@ -19,7 +19,7 @@ venue:
 author:
   - fullname: "Kevin Kelley"
     organization: Anthropic
-    email: kelleyk@anthropic.com
+    email: kelleyk-ietf@kelleyk.net
 
 normative:
   RFC2119:

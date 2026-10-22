@@ -1,0 +1,2550 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>SAIL: Source Address Identity List</title>
+<meta content="Kevin Kelley" name="author">
+<meta content="
+       This document defines SAIL (Source Address Identity List), a
+metadata format served at a well-known URI in which the operator of
+automated HTTP clients publishes the IP prefixes its services send
+from, together with two optional assertions: that a service sends from
+nowhere else, and that nothing else of the operator's sends from a
+given set of prefixes. A site that receives a request claiming to be
+one of those services can use that metadata to confirm the claim or,
+under those assertions, to refute it. The mechanism is intended to
+complement reverse-DNS verification and HTTP Message Signatures. 
+    " name="description">
+<meta content="xml2rfc 3.34.1" name="generator">
+<meta content="crawler" name="keyword">
+<meta content="bot" name="keyword">
+<meta content="IP ranges" name="keyword">
+<meta content="egress prefixes" name="keyword">
+<meta content="user-agent verification" name="keyword">
+<meta content="draft-kelley-webbotauth-sail-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.34.1
+    Python 3.14.8
+    ConfigArgParse 1.8.0
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.13.4
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.9.2
+-->
+<link href="draft-kelley-webbotauth-sail.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1 {
+  &#title {
+    font-size: 32px;
+    line-height: 40px;
+    clear: both;
+    margin: 1.5em 0 0.2em;
+  }
+  &#rfcnum {
+    margin: 1.5em 0 0.2em;
+    & + h1#title {
+      margin: 0.2em 0;
+    }
+  }
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+  & code, & samp, & tt {
+    font-size: 16px;
+    line-height: 0;
+  }
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    margin: 0;
+    float: right;
+    clear: both;
+  }
+  & > *:nth-child(2) {
+    clear: both;
+    display: block;
+    border: none;
+  }
+}
+svg {
+  display: block;
+  /* font-family isn't space-separated, but =~ will have to do */
+  &[font-family~="monospace" i], & [font-family~="monospace" i] {
+    font-family: var(--font-mono);
+  }
+}
+.alignCenter {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+       support flexbox yet.
+    */
+    display: table;
+    margin: 0 auto;
+  }
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+      float: none;
+    }
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+
+  &:not(.dlNewline) > dt {
+    float: left;
+    margin-right: 2ch;
+    min-width: 8ch;
+  }
+  & > dd {
+    margin-bottom: .8em;
+    margin-left: var(--indent) !important; /* stupid element overrides */
+    min-height: 2ex;
+  }
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a {
+  text-decoration: none;
+  &[href] {
+    color: var(--link-color);
+    &:hover { text-decoration: underline; }
+    &.selfRef {
+      color: var(--text-color);
+      &:hover {
+        text-decoration: none;
+        background-color: var(--highlight-color);
+      }
+    }
+  }
+}
+.iref + a[href].internal {
+  color: var(--text-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+  & blockquote {
+    margin: 0.8em 0.4em 0.4em;
+  }
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) {
+    & p {
+      margin: -2px 0;
+      max-height: 0;
+      transition: max-height 2s ease, margin 0.5s ease 0.5s;
+      overflow: hidden;
+    }
+    &:hover p,
+    & h2:target ~ p {
+      margin: 0.5em 0;
+      max-height: 500px;
+      overflow: auto;
+    }
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  &.right { margin-left: auto; }
+  &.center { margin-left: auto; margin-right: auto; }
+  &.left { margin-right: auto; }
+  & .text-left { text-align: left; }
+  & .text-center { text-align: center; }
+  & .text-right { text-align: right; }
+  & caption {
+    margin: 0;
+    padding: 3px 0 3px 1em;
+  }
+  & p { margin: 0; }
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+  @media not print {
+    :hover > &, &:focus {
+      opacity: 1;
+    }
+    &[href]:hover {
+      color: var(--pilcrow-strong);
+      background-color: transparent;
+    }
+  }
+  @media print {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+  & .prepared {
+    float: right;
+  }
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses {
+    & > section {
+      column-count: 2;
+      column-gap: 20px;
+    }
+    & > section > h2 {
+      column-span: all;
+    }
+    /* hack for break-inside: avoid-column */
+    & address {
+      display: inline-block;
+      break-inside: avoid-column;
+    }
+  }
+}
+
+/* Comments */
+.rfcEditorRemove {
+  & p:first-of-type {
+    font-style: italic;
+  }
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc {
+    & nav {
+      font-family: var(--font-title);
+      font-weight: 360;
+      & > ul { margin-bottom: 2em; }
+      & ul {
+        margin: 0 0 0 4px;
+        & :is(p, li) {
+          margin: 2px 0;
+        }
+      }
+    }
+    & a.toplink {
+      float: right;
+    }
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+    & h2 {
+      margin: 0;
+      padding: 2px 0 2px 6px;
+      padding-right: 1em;
+      font-size: 18px;
+      line-height: 24px;
+      min-width: 190px;
+      text-align: right;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      &::before { /* css hamburger */
+        float: right;
+        position: relative;
+        width: 1em;
+        height: 1px;
+        left: -164px;
+        margin: 8px 0 0 0;
+        background: white none repeat scroll 0 0;
+        box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+        content: "";
+      }
+    }
+    & nav {
+      display: none;
+      background-color: var(--background-color);
+      padding: 0.5em 1em 1em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      height: calc(100vh - 48px);
+      border-left: 1px solid #ddd;
+    }
+    &.active {
+      opacity: 1;
+      & nav { display: block; }
+    }
+    /* Make the collapsed ToC header render white on gray also when it's a link */
+    & h2 a,
+    & h2 a:is(:link, :focus, :hover),
+    & a.toplink,
+    & a.toplink:hover {
+      color: white;
+      background-color: #444;
+      text-decoration: none;
+    }
+    & a.toplink {
+      margin: 2px 0.5em 0;
+    }
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    & h2 {
+      margin: 0;
+      padding: 0.25em 1em 1em 0;
+    }
+    & nav {
+      display: block;
+      height: calc(90vh - 84px);
+      bottom: 0;
+      padding: 0.5em 0 2em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    & a.toplink {
+      margin: 8px 0.5em 0;
+    }
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc {
+    page-break-before: always;
+    border-top: none;
+    padding-top: 0;
+  }
+  #n-introduction {
+    page-break-before: always;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg {
+  & :is([stroke="black"], [stroke^="#000"]) {
+    stroke: var(--text-color);
+  }
+  & :is([stroke="white"], [stroke^="#fff"]) {
+    stroke: var(--background-color);
+  }
+  & :is([fill="black"], [fill^="#000"], :not([fill])) {
+    fill: var(--text-color);
+  }
+  & :is([fill="white"], [fill^="#fff"]) {
+    fill: var(--background-color);
+  }
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">SAIL</td>
+<td class="right">October 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Kelley</td>
+<td class="center">Expires 25 April 2027</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Web Bot Auth</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-kelley-webbotauth-sail-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-10-22" class="published">22 October 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Standards Track</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2027-04-25">25 April 2027</time></dd>
+<dt class="label-authors">Author:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">K. Kelley</div>
+<div class="org">Anthropic</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">SAIL: Source Address Identity List</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document defines SAIL (Source Address Identity List), a
+metadata format served at a well-known URI in which the operator of
+automated HTTP clients publishes the IP prefixes its services send
+from, together with two optional assertions: that a service sends from
+nowhere else, and that nothing else of the operator's sends from a
+given set of prefixes. A site that receives a request claiming to be
+one of those services can use that metadata to confirm the claim or,
+under those assertions, to refute it. The mechanism is intended to
+complement reverse-DNS verification and HTTP Message Signatures.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-kelley-webbotauth-sail/">https://datatracker.ietf.org/doc/draft-kelley-webbotauth-sail/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">
+        Discussion of this document takes place on the
+        Web Bot Auth Working Group mailing list (<span><a href="mailto:web-bot-auth@ietf.org">mailto:web-bot-auth@ietf.org</a></span>),
+        which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/web-bot-auth/">https://mailarchive.ietf.org/arch/browse/web-bot-auth/</a></span>.
+        Subscribe at <span><a href="https://www.ietf.org/mailman/listinfo/web-bot-auth/">https://www.ietf.org/mailman/listinfo/web-bot-auth/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 25 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1" class="keepWithNext"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-location-of-the-sail-docume" class="internal xref">Location of the SAIL Document</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-document-format" class="internal xref">Document Format</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-serialization" class="internal xref">Serialization</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-invalid-documents" class="internal xref">Invalid Documents</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-schema" class="internal xref">Schema</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3.2.1">
+                    <p id="section-toc.1-1.4.2.3.2.1.1"><a href="#section-4.3.1" class="auto internal xref">4.3.1</a>.  <a href="#name-identifiers" class="internal xref">Identifiers</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-prefixes" class="internal xref">Prefixes</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4.2.1">
+                    <p id="section-toc.1-1.4.2.4.2.1.1"><a href="#section-4.4.1" class="auto internal xref">4.4.1</a>.  <a href="#name-syntax" class="internal xref">Syntax</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4.2.2">
+                    <p id="section-toc.1-1.4.2.4.2.2.1"><a href="#section-4.4.2" class="auto internal xref">4.4.2</a>.  <a href="#name-permitted-address-space" class="internal xref">Permitted Address Space</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4.2.3">
+                    <p id="section-toc.1-1.4.2.4.2.3.1"><a href="#section-4.4.3" class="auto internal xref">4.4.3</a>.  <a href="#name-resolving-prefixes" class="internal xref">Resolving Prefixes</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5">
+                <p id="section-toc.1-1.4.2.5.1"><a href="#section-4.5" class="auto internal xref">4.5</a>.  <a href="#name-example" class="internal xref">Example</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-validity-period" class="internal xref">Validity Period</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-identity-claims" class="internal xref">Identity Claims</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-permissible-inferences" class="internal xref">Permissible Inferences</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-publisher-responsibilities" class="internal xref">Publisher Responsibilities</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-fetching-from-request-deriv" class="internal xref">Fetching from Request-Derived Locations</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-unverified-prefix-claims" class="internal xref">Unverified Prefix Claims</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-false-assertions" class="internal xref">False Assertions</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.4">
+                <p id="section-toc.1-1.9.2.4.1"><a href="#section-9.4" class="auto internal xref">9.4</a>.  <a href="#name-infrastructure-disclosure" class="internal xref">Infrastructure Disclosure</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.5">
+                <p id="section-toc.1-1.9.2.5.1"><a href="#section-9.5" class="auto internal xref">9.5</a>.  <a href="#name-redirected-documents" class="internal xref">Redirected Documents</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.6">
+                <p id="section-toc.1-1.9.2.6.1"><a href="#section-9.6" class="auto internal xref">9.6</a>.  <a href="#name-counterfeit-documentation-u" class="internal xref">Counterfeit Documentation URLs</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-well-known-uri" class="internal xref">Well-Known URI</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-media-type" class="internal xref">Media Type</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-structured-syntax-suffix" class="internal xref">Structured Syntax Suffix</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.1">
+                <p id="section-toc.1-1.11.2.1.1"><a href="#section-11.1" class="auto internal xref">11.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.2">
+                <p id="section-toc.1-1.11.2.2.1"><a href="#section-11.2" class="auto internal xref">11.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">This document defines SAIL (Source Address Identity List), a
+machine-readable and machine-discoverable metadata format that allows
+service operators to publish information about which addresses other
+parties should expect to receive inbound traffic from.  It also
+defines a well-known URI for discovering that metadata.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">Among other uses, this mechanism is intended to allow a consumer
+that has received a request to determine whether the identity the
+request claims is consistent with the address it arrived from.  For
+example, it allows a consumer that has received an HTTP request to
+determine whether the service named in the <code>User-Agent</code> header could
+have sent it, or whether the request may be an attempt to impersonate
+that service.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">Operators of well-behaved automated clients already publish
+documentation about the services that they operate, including e.g. IP
+prefixes; however, each publisher chooses its own schema and
+publication location today, which makes automatically consuming that
+metadata difficult.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">A SAIL document is published by a single operator and describes only
+traffic that operator itself originates. It identifies that operator's
+services, not the people or organisations on whose behalf a service
+may be acting: identity that is delegated, federated, or scoped more
+finely than the operator — per user, per customer, or per task — is
+outside the scope of this document.<a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">Site operators extend privileges to automated clients they recognise
+and trust, such as access that other clients are refused or higher
+rate limits, so impersonating such a client is valuable.<a href="#section-1-5" class="pilcrow">¶</a></p>
+<p id="section-1-6">This draft is intended to complement, and not to be an alternative to,
+reverse-DNS verification and HTTP Message Signatures <span>[<a href="#RFC9421" class="cite xref">RFC9421</a>]</span> as
+applied to automated clients by <span>[<a href="#WBA-ARCH" class="cite xref">WBA-ARCH</a>]</span>, which are two other
+widespread means of accomplishing the same outcome.<a href="#section-1-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="conventions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">This document uses the following terms:<a href="#section-2-2" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-2-3">
+        <dt id="section-2-3.1">Publisher:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.2">
+          <p id="section-2-3.2.1">The operator that generates and serves a SAIL document describing
+its own services and the prefixes they send from.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.3">Consumer:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.4">
+          <p id="section-2-3.4.1">A party that retrieves a SAIL document and acts on it, typically the
+operator of a site that receives automated requests, or an
+intermediary acting on such a site's behalf.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.5">Holder:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.6">
+          <p id="section-2-3.6.1">Any party in possession of a copy of a SAIL document, however
+obtained: a consumer that fetched it from the publisher, or one that
+received it from a shared cache, a mirror, or a file. Every consumer
+is a holder; <a href="#validity" class="auto internal xref">Section 5</a> places obligations on holders generally.<a href="#section-2-3.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.7">Origin:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.8">
+          <p id="section-2-3.8.1">The scheme, host, and port of a URI, as defined in Section 4.3.1 of
+<span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>. A SAIL document speaks for the origin at whose
+well-known URI it was requested (<a href="#location" class="auto internal xref">Section 3</a>).<a href="#section-2-3.8.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.9">Service:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.10">
+          <p id="section-2-3.10.1">A named source of outbound traffic operated by the publisher,
+typically an automated HTTP client such as a crawler or fetcher,
+described by an entry in the document's <code>services</code> array
+(<a href="#schema" class="auto internal xref">Section 4.3</a>). <a href="#http" class="auto internal xref">Section 6</a> describes how a request claims a service.<a href="#section-2-3.10.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.11">Prefix:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.12">
+          <p id="section-2-3.12.1">An IPv4 or IPv6 address prefix in CIDR notation <span>[<a href="#RFC4632" class="cite xref">RFC4632</a>]</span>, or a
+single address, written as described in <a href="#prefix-syntax" class="auto internal xref">Section 4.4.1</a>. "IP
+range" and "address list" in deployed practice refer to the same
+thing; arbitrary start–end ranges that are not a single prefix cannot
+be expressed.<a href="#section-2-3.12.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.13">Prefix set:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.14">
+          <p id="section-2-3.14.1">A named collection of prefixes published together, typically
+corresponding to one egress pool, and the unit over which <code>exclusive</code>
+is asserted (<a href="#schema" class="auto internal xref">Section 4.3</a>).<a href="#section-2-3.14.1" class="pilcrow">¶</a></p>
+</dd>
+      <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="location">
+<section id="section-3">
+      <h2 id="name-location-of-the-sail-docume">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-location-of-the-sail-docume" class="section-name selfRef">Location of the SAIL Document</a>
+      </h2>
+<p id="section-3-1">A publisher <span class="bcp14">MUST</span> serve its SAIL document at the well-known URI
+<span>[<a href="#RFC8615" class="cite xref">RFC8615</a>]</span> whose path component is "/.well-known/sail" on the origin
+by which it wishes its services to be identified (<a href="#http" class="auto internal xref">Section 6</a>):<a href="#section-3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-3-2">
+<pre>
+https://example.com/.well-known/sail
+</pre><a href="#section-3-2" class="pilcrow">¶</a>
+</div>
+<p id="section-3-3">The document <span class="bcp14">MUST</span> be served using the "https" scheme only; it <span class="bcp14">MUST NOT</span>
+be served with any other URI scheme, and a consumer <span class="bcp14">MUST</span> query it using
+HTTPS only. If the HTTPS request fails, a consumer <span class="bcp14">MUST NOT</span> reissue it
+over a non-secure connection. A publisher <span class="bcp14">MUST</span> serve it with
+status 200 (OK) and Content-Type <code>application/sail+toml</code>
+(<a href="#serialization" class="auto internal xref">Section 4.1</a>). A consumer <span class="bcp14">MUST NOT</span> treat a response with any
+other status code as a SAIL document, and <span class="bcp14">MUST</span> accept a 200 response
+whose body parses and validates as a SAIL document (<a href="#schema" class="auto internal xref">Section 4.3</a>)
+whatever Content-Type it carries.<a href="#section-3-3" class="pilcrow">¶</a></p>
+<p id="section-3-4">Retrieval <span class="bcp14">MAY</span> result in an HTTP redirect, and redirects are handled as
+<span>[<a href="#RFC9309" class="cite xref">RFC9309</a>]</span> (Section 2.3.1.2) handles them for robots.txt. A consumer
+<span class="bcp14">SHOULD</span> follow at least five consecutive redirects, even across origins;
+if the document is reached within five, it is fetched, validated, and
+applied in the context of the origin whose well-known URI was
+originally requested; if there are more than five, the consumer <span class="bcp14">MAY</span>
+treat the document as unavailable. Any such redirect <span class="bcp14">MUST</span> be to an
+"https" URI; a consumer <span class="bcp14">MUST NOT</span> follow a redirect to any other scheme.
+A publisher <span class="bcp14">MAY</span> redirect other schemes to "https".<a href="#section-3-4" class="pilcrow">¶</a></p>
+<p id="section-3-5">A document obtained by following redirects therefore speaks for the
+origin whose well-known URI was originally requested, not for the
+origin that ultimately serves it: a redirect is an act of the requested
+origin, and a consumer redirected from <code>a.example</code> to <code>b.example</code> has
+obtained <code>a.example</code>'s SAIL document.  This lets a publisher serve one
+document for several hosts, or from static hosting on another origin
+(<a href="#redirected" class="auto internal xref">Section 9.5</a>).<a href="#section-3-5" class="pilcrow">¶</a></p>
+<p id="section-3-6">The well-known path is the only location this specification
+defines. Consumers <span class="bcp14">MUST NOT</span> look for the document elsewhere on the
+origin.<a href="#section-3-6" class="pilcrow">¶</a></p>
+<p id="section-3-7">Many automated clients include, in the comment portion of their
+<code>User-Agent</code> header field, a URL for a page describing the client and
+its operator <span>[<a href="#CBCP" class="cite xref">CBCP</a>]</span>. A publisher whose clients do so <span class="bcp14">MUST</span> also serve
+its SAIL document, directly or by redirect, at the well-known path on the
+host of that URL, so that <code>https://&lt;that-host&gt;/.well-known/sail</code>
+resolves as described above. A consumer that receives such a request
+can then derive the location of the publisher's SAIL document from
+the request alone, without prior configuration.<a href="#section-3-7" class="pilcrow">¶</a></p>
+<p id="section-3-8">A publisher <span class="bcp14">SHOULD</span> additionally link to the well-known URI from the
+human-readable page that describes its automated clients, for example
+alongside links to existing machine-readable lists of egress addresses
+it already publishes.<a href="#section-3-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="format">
+<section id="section-4">
+      <h2 id="name-document-format">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-document-format" class="section-name selfRef">Document Format</a>
+      </h2>
+<p id="section-4-1">This section defines the serialization, schema, and prefix notation of
+a SAIL document, and how a consumer resolves its prefixes. <a href="#example" class="auto internal xref">Section 4.5</a>
+gives a complete example.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<div id="serialization">
+<section id="section-4.1">
+        <h3 id="name-serialization">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-serialization" class="section-name selfRef">Serialization</a>
+        </h3>
+<p id="section-4.1-1">A SAIL document is a TOML <span>[<a href="#TOML" class="cite xref">TOML</a>]</span> document and, as TOML requires,
+<span class="bcp14">MUST</span> be encoded in UTF-8 <span>[<a href="#RFC3629" class="cite xref">RFC3629</a>]</span>. Its date-time values are TOML
+offset date-times, which are <span>[<a href="#RFC3339" class="cite xref">RFC3339</a>]</span> timestamps. Its media type is
+<code>application/sail+toml</code>
+(<a href="#iana" class="auto internal xref">Section 10</a>; the <code>+toml</code> suffix is not yet registered, see the note
+there).<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-2">We use TOML rather than alternatives such as JSON so that the document
+can carry comments.<a href="#section-4.1-2" class="pilcrow">¶</a></p>
+<p id="section-4.1-3">A document <span class="bcp14">MUST NOT</span> exceed 524288 octets (512 KiB). The limit applies
+to the TOML text itself, after any HTTP content coding has been
+removed, not to the size on the wire. A consumer <span class="bcp14">MAY</span> stop reading a
+response once the limit is passed. A document that exceeds the limit,
+is not valid UTF-8, or is not valid TOML is invalid (<a href="#invalid" class="auto internal xref">Section 4.2</a>).<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+<p id="section-4.1-4">[[EDNOTE: 512 KiB is a first guess.  Also open is whether per-item
+limits (counts of prefix sets, services, or prefixes per set) are
+needed in addition.]]<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="invalid">
+<section id="section-4.2">
+        <h3 id="name-invalid-documents">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-invalid-documents" class="section-name selfRef">Invalid Documents</a>
+        </h3>
+<p id="section-4.2-1">Wherever this specification says a document is <em>invalid</em>, a consumer
+<span class="bcp14">MUST</span> ignore it in its entirety and <span class="bcp14">MUST NOT</span> act on any part of it. In
+particular a consumer <span class="bcp14">MUST NOT</span> act on the readable portion of a
+truncated or partly parseable document.  For example, an incomplete
+list under <code>exhaustive</code> would cause genuine traffic to be rejected.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<p id="section-4.2-2">A final response with any status code other than 200 (OK), once
+redirects have been followed, is invalid.<a href="#section-4.2-2" class="pilcrow">¶</a></p>
+<p id="section-4.2-3">A consumer that already holds a valid document from the same origin
+<span class="bcp14">SHOULD</span> continue to use it until its effective expiry (<a href="#validity" class="auto internal xref">Section 5</a>),
+as if the invalid retrieval had not occurred.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="schema">
+<section id="section-4.3">
+        <h3 id="name-schema">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-schema" class="section-name selfRef">Schema</a>
+        </h3>
+<p id="section-4.3-1">A SAIL document (<a href="#serialization" class="auto internal xref">Section 4.1</a>) is a single TOML table with the
+following top-level keys. Unrecognised keys at any level <span class="bcp14">MUST</span> be
+ignored.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-4.3-2">
+          <dt id="section-4.3-2.1">schema (string, <span class="bcp14">REQUIRED</span>):</dt>
+          <dd style="margin-left: 1.5em" id="section-4.3-2.2">
+            <p id="section-4.3-2.2.1">The specification the document conforms to; for this version,
+"draft-kelley-webbotauth-sail-00".<a href="#section-4.3-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.3-2.3">modified (offset date-time, <span class="bcp14">REQUIRED</span>):</dt>
+          <dd style="margin-left: 1.5em" id="section-4.3-2.4">
+            <p id="section-4.3-2.4.1">When the document's content last changed, for the benefit of mirrors,
+caches, and other systems that track the metadata a SAIL document
+expresses. Regenerating or re-serving unchanged content, or changing
+only the expiry, <span class="bcp14">MUST NOT</span> advance it.<a href="#section-4.3-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.3-2.5">expires (offset date-time) / expires_after (integer seconds):</dt>
+          <dd style="margin-left: 1.5em" id="section-4.3-2.6">
+            <p id="section-4.3-2.6.1">A publisher <span class="bcp14">MUST</span> include exactly one. <code>expires</code> is the absolute
+instant at which the content ceases to be valid (<a href="#validity" class="auto internal xref">Section 5</a>).
+<code>expires_after</code> obliges any holder to refresh the document within
+that many seconds of receiving it and not to rely on an unrefreshed
+copy beyond that; it <span class="bcp14">MUST NOT</span> exceed 2592000 (30 days), and a consumer
+that receives a larger value <span class="bcp14">MUST</span> treat it as 2592000. It
+is provided for publishers for whom regularly advancing an absolute
+<code>expires</code> is infeasible. A document with neither key is invalid
+(<a href="#invalid" class="auto internal xref">Section 4.2</a>); a consumer that receives a document with both <span class="bcp14">MUST</span>
+use whichever yields the earlier effective expiry (<a href="#validity" class="auto internal xref">Section 5</a>).<a href="#section-4.3-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.3-2.7">prefix_sets (array of tables):</dt>
+          <dd style="margin-left: 1.5em" id="section-4.3-2.8">
+            <p id="section-4.3-2.8.1">Each entry describes one egress pool:<a href="#section-4.3-2.8.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.3-2.8.2.1">
+                <p id="section-4.3-2.8.2.1.1"><code>name</code> (identifier, <span class="bcp14">REQUIRED</span>; see <a href="#ident" class="auto internal xref">Section 4.3.1</a>) — unique within
+the document and meaningless outside it.<a href="#section-4.3-2.8.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-4.3-2.8.2.2">
+                <p id="section-4.3-2.8.2.2.1"><code>ipv4_prefixes</code>, <code>ipv6_prefixes</code> (arrays of strings) — prefixes in
+the syntax of <a href="#prefix-syntax" class="auto internal xref">Section 4.4.1</a>, subject to <a href="#prefix-validity" class="auto internal xref">Section 4.4.2</a>.<a href="#section-4.3-2.8.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-4.3-2.8.2.3">
+                <p id="section-4.3-2.8.2.3.1"><code>exclusive</code> (boolean, default false) — the publisher asserts that all
+of <em>its own</em> use of these prefixes is described in this SAIL
+document
+(<a href="#inference" class="auto internal xref">Section 7</a>).<a href="#section-4.3-2.8.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+<p id="section-4.3-2.8.3">A prefix set that no service references and is not marked
+<code>exclusive</code> asserts nothing and <span class="bcp14">MUST</span> be ignored. One that no service
+references and <em>is</em> marked <code>exclusive</code> is meaningful: it states that
+none of the publisher's services send from those prefixes, so that
+any request claiming one of them from there is refuted
+(<a href="#inference" class="auto internal xref">Section 7</a>); a publisher can use this for address space it holds
+but does not send from. A prefix <span class="bcp14">MAY</span> appear in more than one set and
+in service entries; <a href="#overlaps" class="auto internal xref">Section 4.4.3</a> defines how occurrences combine, and
+a prefix in an unreferenced exclusive set that also appears elsewhere
+in the document takes its services from those other occurrences.<a href="#section-4.3-2.8.3" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.3-2.9">services (array of tables):</dt>
+          <dd style="margin-left: 1.5em" id="section-4.3-2.10">
+            <p id="section-4.3-2.10.1">Each entry describes one source of outbound traffic:<a href="#section-4.3-2.10.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.3-2.10.2.1">
+                <p id="section-4.3-2.10.2.1.1"><code>name</code> (identifier, <span class="bcp14">REQUIRED</span>; see <a href="#ident" class="auto internal xref">Section 4.3.1</a>) — unique within
+the document. This is the name a request claims (<a href="#http" class="auto internal xref">Section 6</a>).<a href="#section-4.3-2.10.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-4.3-2.10.2.2">
+                <p id="section-4.3-2.10.2.2.1"><code>prefix_sets</code> (array of identifiers) — names of prefix sets in this
+document from which the service sends. An unknown name makes the
+document invalid.<a href="#section-4.3-2.10.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-4.3-2.10.2.3">
+                <p id="section-4.3-2.10.2.3.1"><code>ipv4_prefixes</code>, <code>ipv6_prefixes</code> (arrays of strings) — prefixes from
+which the service sends, listed directly. Exactly equivalent to an
+anonymous prefix set, referenced only by this service, whose other
+keys all take their default values.<a href="#section-4.3-2.10.2.3.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-4.3-2.10.2.4">
+                <p id="section-4.3-2.10.2.4.1"><code>exhaustive</code> (boolean, default false) — the publisher asserts that
+this service sends from nowhere outside its prefixes as resolved by
+<a href="#overlaps" class="auto internal xref">Section 4.4.3</a> (<a href="#inference" class="auto internal xref">Section 7</a>; see <a href="#publisher" class="auto internal xref">Section 8</a> on when to set it).<a href="#section-4.3-2.10.2.4.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+<p id="section-4.3-2.10.3">A service with no <code>prefix_sets</code> and no directly listed prefixes has
+no prefixes.<a href="#section-4.3-2.10.3" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-4.3-3">A document with duplicate prefix-set names, duplicate service names, a
+dangling prefix-set reference, an identifier that violates
+<a href="#ident" class="auto internal xref">Section 4.3.1</a>, neither expiry key, or <code>expires</code> not later than
+<code>modified</code> is invalid (<a href="#invalid" class="auto internal xref">Section 4.2</a>).<a href="#section-4.3-3" class="pilcrow">¶</a></p>
+<div id="ident">
+<section id="section-4.3.1">
+          <h4 id="name-identifiers">
+<a href="#section-4.3.1" class="section-number selfRef">4.3.1. </a><a href="#name-identifiers" class="section-name selfRef">Identifiers</a>
+          </h4>
+<p id="section-4.3.1-1">Prefix-set names, service names, and the references to prefix sets in a
+service's <code>prefix_sets</code> array are <em>identifiers</em>. An identifier is a TOML
+string whose value:<a href="#section-4.3.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.3.1-2.1">
+              <p id="section-4.3.1-2.1.1"><span class="bcp14">MUST</span> be a <code>token</code> as defined in Section 5.6.2 of <span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>: one or
+more of the ASCII characters ALPHA, DIGIT, and
+<code>!</code> <code>#</code> <code>$</code> <code>%</code> <code>&amp;</code> <code>'</code> <code>*</code> <code>+</code> <code>-</code> <code>.</code> <code>^</code> <code>_</code> <code>`</code> <code>|</code> <code>~</code>; and<a href="#section-4.3.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.3.1-2.2">
+              <p id="section-4.3.1-2.2.1"><span class="bcp14">MUST NOT</span> exceed 128 characters.<a href="#section-4.3.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.3.1-3">Length limits on strings in this specification are stated in
+characters and apply to the parsed TOML string value, after the
+document has been decoded and any TOML escapes resolved; only the
+overall document limit (<a href="#serialization" class="auto internal xref">Section 4.1</a>) is stated in octets,
+because it is checked before parsing.<a href="#section-4.3.1-3" class="pilcrow">¶</a></p>
+<p id="section-4.3.1-4">This is the same grammar as an HTTP product name, so every service name
+can appear verbatim in a <code>User-Agent</code> field value (<a href="#http" class="auto internal xref">Section 6</a>) and as a
+robots.txt product token, which <span>[<a href="#RFC9309" class="cite xref">RFC9309</a>]</span> likewise matches
+case-insensitively.<a href="#section-4.3.1-4" class="pilcrow">¶</a></p>
+<p id="section-4.3.1-5">Identifiers are compared ASCII-case-insensitively: two identifiers are
+equal if and only if they are identical, character for character,
+after each character in the range U+0041–U+005A ("A"–"Z") is replaced
+by the corresponding character in the range U+0061–U+007A
+("a"–"z"). No other folding or normalisation is applied. This rule
+governs uniqueness of names within a document, resolution of
+<code>prefix_sets</code> references, and matching a service name against a
+<code>User-Agent</code> field value (<a href="#http" class="auto internal xref">Section 6</a>).<a href="#section-4.3.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="prefixes">
+<section id="section-4.4">
+        <h3 id="name-prefixes">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-prefixes" class="section-name selfRef">Prefixes</a>
+        </h3>
+<div id="prefix-syntax">
+<section id="section-4.4.1">
+          <h4 id="name-syntax">
+<a href="#section-4.4.1" class="section-number selfRef">4.4.1. </a><a href="#name-syntax" class="section-name selfRef">Syntax</a>
+          </h4>
+<p id="section-4.4.1-1">Each element of <code>ipv4_prefixes</code> and <code>ipv6_prefixes</code> is a TOML string in
+exactly one of two forms:<a href="#section-4.4.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.4.1-2.1">
+              <p id="section-4.4.1-2.1.1">CIDR notation <span>[<a href="#RFC4632" class="cite xref">RFC4632</a>]</span>: an address in the family's textual form,
+"/", and a decimal prefix length ("192.0.2.0/24", "2001:db8::/32"); or<a href="#section-4.4.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.4.1-2.2">
+              <p id="section-4.4.1-2.2.1">a bare address with no "/", which denotes that single address and is
+equivalent to the same address with "/32" (IPv4) or "/128" (IPv6).<a href="#section-4.4.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.4.1-3">No other form is permitted: start–end ranges, netmask notation,
+wildcards, and lists within one string <span class="bcp14">MUST NOT</span> be used. Each element of
+<code>ipv4_prefixes</code> <span class="bcp14">MUST</span> be an IPv4 prefix and each element of
+<code>ipv6_prefixes</code> an IPv6 prefix. Publishers <span class="bcp14">SHOULD</span> write prefixes in
+canonical form, with all bits beyond the prefix length zero and, for
+IPv6, in the text representation of <span>[<a href="#RFC5952" class="cite xref">RFC5952</a>]</span>; a consumer that
+receives one with host bits set <span class="bcp14">MUST</span> honour it as the prefix obtained
+by clearing those bits, and neither this nor a non-canonical text
+representation alone makes the document invalid.<a href="#section-4.4.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="prefix-validity">
+<section id="section-4.4.2">
+          <h4 id="name-permitted-address-space">
+<a href="#section-4.4.2" class="section-number selfRef">4.4.2. </a><a href="#name-permitted-address-space" class="section-name selfRef">Permitted Address Space</a>
+          </h4>
+<p id="section-4.4.2-1">A prefix <span class="bcp14">MUST</span> lie wholly within globally reachable unicast space. It
+<span class="bcp14">MUST NOT</span> overlap:<a href="#section-4.4.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.4.2-2.1">
+              <p id="section-4.4.2-2.1.1">any block whose "Globally Reachable" property is anything other than
+an unqualified True in the IANA IPv4 Special-Purpose Address Registry
+<span>[<a href="#IANA-IPV4-SP" class="cite xref">IANA-IPV4-SP</a>]</span> or IPv6 Special-Purpose Address Registry
+<span>[<a href="#IANA-IPV6-SP" class="cite xref">IANA-IPV6-SP</a>]</span> (established by <span>[<a href="#RFC6890" class="cite xref">RFC6890</a>]</span> and <span>[<a href="#RFC8190" class="cite xref">RFC8190</a>]</span>; this
+covers private, shared, loopback, link-local, documentation,
+benchmarking, discard, and reserved space);<a href="#section-4.4.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.4.2-2.2">
+              <p id="section-4.4.2-2.2.1">multicast space (224.0.0.0/4 <span>[<a href="#RFC5771" class="cite xref">RFC5771</a>]</span>, ff00::/8 <span>[<a href="#RFC4291" class="cite xref">RFC4291</a>]</span>);<a href="#section-4.4.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.4.2-2.3">
+              <p id="section-4.4.2-2.3.1">IPv6 prefixes that embed IPv4 addresses (::ffff:0:0/96 and ::/96,
+Section 2.5.5 of <span>[<a href="#RFC4291" class="cite xref">RFC4291</a>]</span>); or<a href="#section-4.4.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.4.2-2.4">
+              <p id="section-4.4.2-2.4.1">transition-mechanism and shared-anycast assignments from which no
+single operator originates ordinary unicast traffic, even where the
+registry marks them reachable: 6to4 (2002::/16 <span>[<a href="#RFC3056" class="cite xref">RFC3056</a>]</span>, and the
+deprecated relay anycast prefix 192.88.99.0/24 <span>[<a href="#RFC7526" class="cite xref">RFC7526</a>]</span>), Teredo
+(2001::/32 <span>[<a href="#RFC4380" class="cite xref">RFC4380</a>]</span>), the NAT64 well-known prefix (64:ff9b::/96
+<span>[<a href="#RFC6052" class="cite xref">RFC6052</a>]</span>), AS112 (192.31.196.0/24 and 2001:4:112::/48 <span>[<a href="#RFC7535" class="cite xref">RFC7535</a>]</span>;
+192.175.48.0/24 and 2620:4f:8000::/48 <span>[<a href="#RFC7534" class="cite xref">RFC7534</a>]</span>), and AMT
+(192.52.193.0/24 and 2001:3::/32 <span>[<a href="#RFC7450" class="cite xref">RFC7450</a>]</span>).<a href="#section-4.4.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.4.2-3">The registries <span>[<a href="#IANA-IPV4-SP" class="cite xref">IANA-IPV4-SP</a>]</span> <span>[<a href="#IANA-IPV6-SP" class="cite xref">IANA-IPV6-SP</a>]</span> are authoritative for
+the first item and consumers <span class="bcp14">SHOULD</span> track them as updated; the
+remaining items are fixed by this specification.<a href="#section-4.4.2-3" class="pilcrow">¶</a></p>
+<p id="section-4.4.2-4">A consumer <span class="bcp14">MUST</span> validate every prefix on receipt. A document containing
+any prefix that is malformed (<a href="#prefix-syntax" class="auto internal xref">Section 4.4.1</a>), in the wrong family
+for its key, or outside the permitted space <span class="bcp14">MUST</span> be treated as
+invalid (<a href="#invalid" class="auto internal xref">Section 4.2</a>).<a href="#section-4.4.2-4" class="pilcrow">¶</a></p>
+<p id="section-4.4.2-5">[[EDNOTE: Whole-document rejection is simple and consistent with the
+handling of unparseable and oversize documents, but one bad prefix
+then withdraws the publisher's entire document until corrected.  More
+graceful degradation is probably possible, but I haven't thought about
+it carefully yet.]]<a href="#section-4.4.2-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="overlaps">
+<section id="section-4.4.3">
+          <h4 id="name-resolving-prefixes">
+<a href="#section-4.4.3" class="section-number selfRef">4.4.3. </a><a href="#name-resolving-prefixes" class="section-name selfRef">Resolving Prefixes</a>
+          </h4>
+<p id="section-4.4.3-1">A consumer resolves a document into, for each address family, a map
+from prefix to the set of services that send from it and whether it is
+exclusive, as follows.<a href="#section-4.4.3-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-4.4.3-2">
+<li id="section-4.4.3-2.1">
+              <p id="section-4.4.3-2.1.1">Every prefix contributes equally, whether it appears in a named
+prefix set or in a service's anonymous set (<a href="#schema" class="auto internal xref">Section 4.3</a>). A prefix is
+associated with every service that references the set containing
+it (with no service, if it appears only in an unreferenced
+<code>exclusive</code> set), and is exclusive if that set is marked
+<code>exclusive</code>. Prefixes of unreferenced sets not marked <code>exclusive</code>
+do not contribute.<a href="#section-4.4.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-4.4.3-2.2">
+              <p id="section-4.4.3-2.2.1">After clearing host bits (<a href="#prefix-syntax" class="auto internal xref">Section 4.4.1</a>), identical prefixes are
+merged: the associated services are the union of those from each
+occurrence, and the prefix is exclusive if any occurrence is. Exact
+duplicates therefore carry no additional meaning and <span class="bcp14">SHOULD</span> be
+discarded.<a href="#section-4.4.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-4.4.3-2.3">
+              <p id="section-4.4.3-2.3.1">For a given address, the <em>governing prefix</em> is the longest resolved
+prefix that contains it. The services and <code>exclusive</code> value that
+apply to the address are those of the governing prefix alone; any
+shorter prefix that also contains the address contributes nothing
+to it. A publisher can thus list a broad allocation under one
+service and carve a more specific prefix out of it for another
+without enumerating the remainder.<a href="#section-4.4.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ol>
+<p id="section-4.4.3-3">An address is "within S's prefixes", for the purposes of <a href="#inference" class="auto internal xref">Section 7</a>,
+if and only if S is among the services of its governing prefix.<a href="#section-4.4.3-3" class="pilcrow">¶</a></p>
+<p id="section-4.4.3-4">A consumer that observes a request's source as an IPv4-mapped IPv6
+address (Section 2.5.5.2 of <span>[<a href="#RFC4291" class="cite xref">RFC4291</a>]</span>, <code>::ffff:0:0/96</code>), as is common
+on dual-stack hosts, <span class="bcp14">MUST</span> match it against <code>ipv4_prefixes</code> as the
+embedded IPv4 address and <span class="bcp14">MUST NOT</span> match it against <code>ipv6_prefixes</code>.<a href="#section-4.4.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="example">
+<section id="section-4.5">
+        <h3 id="name-example">
+<a href="#section-4.5" class="section-number selfRef">4.5. </a><a href="#name-example" class="section-name selfRef">Example</a>
+        </h3>
+<p id="section-4.5-1">The following is a complete SAIL document for a publisher that
+operates two crawlers from a dedicated egress pool, a fetcher that
+additionally uses shared corporate egress, holds a block it does not
+send from, and wishes to disown a name it has retired. The prefixes
+shown are documentation prefixes <span>[<a href="#RFC5737" class="cite xref">RFC5737</a>]</span> <span>[<a href="#RFC3849" class="cite xref">RFC3849</a>]</span>; a real
+document could not contain them (<a href="#prefix-validity" class="auto internal xref">Section 4.4.2</a>).<a href="#section-4.5-1" class="pilcrow">¶</a></p>
+<div class="lang-toml sourcecode" id="section-4.5-2">
+<pre>
+schema        = "draft-kelley-webbotauth-sail-00"
+modified      = 2026-09-02T14:00:00Z
+expires_after = 604800   # 7 days
+
+# Dedicated crawl egress. All of our own use of these prefixes is
+# described in this document.
+[[prefix_sets]]
+name          = "crawl"
+exclusive     = true
+ipv4_prefixes = ["192.0.2.0/24"]
+ipv6_prefixes = ["2001:db8:4000::/40"]
+
+# Shared with staff and other internal systems; not exclusive.
+[[prefix_sets]]
+name          = "corp"
+ipv4_prefixes = ["198.51.100.64/26"]
+
+# Held but unused: nothing of ours sends from here.
+[[prefix_sets]]
+name          = "parked"
+exclusive     = true
+ipv4_prefixes = ["198.51.100.0/26"]
+
+# ExampleBot sends only from the crawl pool.
+[[services]]
+name        = "ExampleBot"
+exhaustive  = true
+prefix_sets = ["crawl"]
+
+# ExampleBot-News sends only from two addresses, listed directly.
+[[services]]
+name          = "ExampleBot-News"
+exhaustive    = true
+ipv4_prefixes = ["203.0.113.7", "203.0.113.8"]
+
+# Example-Fetcher sends from the crawl pool and corporate egress.
+[[services]]
+name        = "Example-Fetcher"
+exhaustive  = true
+prefix_sets = ["crawl", "corp"]
+
+# Retired name; we send nothing as OldExampleBot any more.
+[[services]]
+name       = "OldExampleBot"
+exhaustive = true
+</pre><a href="#section-4.5-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.5-3">Based on the rules in <a href="#inference" class="auto internal xref">Section 7</a>:<a href="#section-4.5-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5-4.1">
+            <p id="section-4.5-4.1.1">A request claiming <code>ExampleBot</code> from 192.0.2.10 is confirmed.<a href="#section-4.5-4.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.2">
+            <p id="section-4.5-4.2.1">One claiming <code>ExampleBot</code> from 198.51.100.70 is refuted, because
+<code>ExampleBot</code> is exhaustive and that address is not within its
+prefixes.<a href="#section-4.5-4.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.3">
+            <p id="section-4.5-4.3.1">A request claiming <code>Example-Fetcher</code> from 198.51.100.70 is
+confirmed.<a href="#section-4.5-4.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.4">
+            <p id="section-4.5-4.4.1">A request from 192.0.2.10 claiming <code>ExampleBot-News</code> is refuted
+twice over: <code>ExampleBot-News</code> is exhaustive and does not list that
+address, and the governing prefix 192.0.2.0/24 is exclusive and
+<code>ExampleBot-News</code> is not among its services.<a href="#section-4.5-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.5">
+            <p id="section-4.5-4.5.1">Every request claiming <code>OldExampleBot</code> is refuted.<a href="#section-4.5-4.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.6">
+            <p id="section-4.5-4.6.1">A request from 198.51.100.10 claiming any of these services is
+refuted: <code>parked</code> is exclusive and no service references it.<a href="#section-4.5-4.6.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.5-4.7">
+            <p id="section-4.5-4.7.1">The document says nothing about a request from 192.0.2.10 that
+claims no identity, or that claims some other operator's.<a href="#section-4.5-4.7.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="validity">
+<section id="section-5">
+      <h2 id="name-validity-period">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-validity-period" class="section-name selfRef">Validity Period</a>
+      </h2>
+<p id="section-5-1">HTTP caching <span>[<a href="#RFC9111" class="cite xref">RFC9111</a>]</span> governs when a consumer refetches the
+<em>resource</em>; <code>modified</code> and the expiry keys describe the <em>data</em>. The
+in-document keys exist because HTTP response metadata is not always
+passed along faithfully.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<p id="section-5-2">The <em>effective expiry</em> of a document is the earliest of:<a href="#section-5-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5-3.1">
+          <p id="section-5-3.1.1">the value of <code>expires</code>, if present;<a href="#section-5-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-3.2">
+          <p id="section-5-3.2.1">the time at which the holder received the document plus
+<code>expires_after</code> seconds, if present; and<a href="#section-5-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-3.3">
+          <p id="section-5-3.3.1">the time at which the holder received the document plus 2592000
+seconds (30 days), in every case.<a href="#section-5-3.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-5-4">The last term bounds how long any copy can be relied on regardless of
+what the document says. A holder <span class="bcp14">MUST NOT</span> act on a document more than
+30 days after receiving it without refreshing it, even if <code>expires</code> is
+later, and publishers <span class="bcp14">SHOULD NOT</span> set <code>expires</code> further ahead than
+that.  This limits how long a copy the publisher cannot recall (in a
+cache, a mirror, or on disk) can continue to assert something the
+publisher has since withdrawn (<a href="#false-assertions" class="auto internal xref">Section 9.3</a>).<a href="#section-5-4" class="pilcrow">¶</a></p>
+<p id="section-5-5">For <code>expires_after</code> each holder uses its own receipt time, from
+whichever source it fetched, so the obligation applies per hop.  As a
+consequence, publishers <span class="bcp14">SHOULD</span> prefer to provide <code>expires</code> rather than
+<code>expires_after</code>; <code>expires_after</code> is provided for use in situations where
+regularly refreshing the <code>expires</code> timestamp is difficult.  A SAIL
+document using <code>expires_after</code> and whose receipt time is unknown <span class="bcp14">MUST</span> be
+treated as expired.<a href="#section-5-5" class="pilcrow">¶</a></p>
+<p id="section-5-6">A consumer <span class="bcp14">MUST NOT</span> act on a document after its effective expiry,
+regardless of HTTP cache state, except in cases where the origin is
+unavailable.  Consumers using stale metadata in that situation <span class="bcp14">SHOULD</span>
+exercise caution.  When a document expires, confirmations and
+refutations (<a href="#inference" class="auto internal xref">Section 7</a>) alike lapse.<a href="#section-5-6" class="pilcrow">¶</a></p>
+<p id="section-5-7">A consumer <span class="bcp14">MAY</span> refresh more often than expiry or HTTP freshness
+require, but is not obliged to. Publishers <span class="bcp14">SHOULD</span>, where feasible,
+send HTTP freshness information (<code>Cache-Control: max-age</code> or
+<code>Expires</code>) that agrees with the document's own expiry and in no case
+extends beyond it.<a href="#section-5-7" class="pilcrow">¶</a></p>
+<p id="section-5-8">Consumers <span class="bcp14">MUST NOT</span> refresh a non-expired SAIL document more
+frequently than every 1800 seconds, regardless of other caching
+signals.<a href="#section-5-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="http">
+<section id="section-6">
+      <h2 id="name-identity-claims">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-identity-claims" class="section-name selfRef">Identity Claims</a>
+      </h2>
+<p id="section-6-1">A service name is not by itself an identity.  Names are chosen freely
+by each publisher, and nothing prevents two publishers, or a publisher
+and an impostor, from using the same one. The identity that a SAIL
+document speaks to, and that a consumer confirms or refutes, is the
+pair (origin of the SAIL document, service name). Any trust or policy
+a consumer attaches to a service <span class="bcp14">MUST</span> be attached to that pair, with
+the origin established by means outside the request.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">In particular, a URL carried in a request (such as the <code>User-Agent</code>
+comment used for discovery in <a href="#location" class="auto internal xref">Section 3</a>) tells a consumer only
+where the sender says to look; it is not evidence of which origin is
+authoritative for a name (<a href="#counterfeit-origin" class="auto internal xref">Section 9.6</a>).<a href="#section-6-2" class="pilcrow">¶</a></p>
+<p id="section-6-3">The inferences in <a href="#inference" class="auto internal xref">Section 7</a> apply to a request that <em>claims</em> one of
+the publisher's services. For HTTP, that claim is carried in the
+request's <code>User-Agent</code> header field (Section 10.1.5 of <span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>);
+a request claims service S when S's <code>name</code> appears there. Publishers
+<span class="bcp14">SHOULD</span> choose each service's <code>name</code> to be the product token its client
+sends, and for crawlers the token it answers to in robots.txt (Section
+2.2.1 of <span>[<a href="#RFC9309" class="cite xref">RFC9309</a>]</span>), so that one identifier serves throughout.<a href="#section-6-3" class="pilcrow">¶</a></p>
+<p id="section-6-4">[[EDNOTE: This is a little bit tricky because <code>User-Agent</code> headers
+routinely contain lots of different things.  In practice, heuristic
+libraries are used to interpret these values.  We should figure out if
+there's something more definite we can say here.]]<a href="#section-6-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="inference">
+<section id="section-7">
+      <h2 id="name-permissible-inferences">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-permissible-inferences" class="section-name selfRef">Permissible Inferences</a>
+      </h2>
+<p id="section-7-1">A SAIL document lets a consumer test a request's <em>claim</em> to be one of
+the publisher's services (<a href="#http" class="auto internal xref">Section 6</a>) against the address the request
+came from. It provides a basis for exactly the following conclusions,
+and for no others.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-7-2">
+        <dt id="section-7-2.1">Confirmation:</dt>
+        <dd style="margin-left: 1.5em" id="section-7-2.2">
+          <p id="section-7-2.2.1">A request that claims service S and originates from an address
+within S's prefixes is supported by the SAIL metadata. No assertion
+(e.g. <code>exhaustive</code> or <code>exclusive</code>) is required beyond S being
+listed.<a href="#section-7-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-7-2.3">Refutation by service (<code>exhaustive</code>):</dt>
+        <dd style="margin-left: 1.5em" id="section-7-2.4">
+          <p id="section-7-2.4.1">If S is marked <code>exhaustive</code>, the publisher has stated that S sends
+from nowhere else. A request claiming S from an address outside S's
+prefixes is therefore not from the publisher, and the consumer <span class="bcp14">MUST</span>
+treat the claim as refuted, <span class="bcp14">MUST NOT</span> extend to the request any
+treatment it reserves for S, and <span class="bcp14">MAY</span> additionally reject the
+request. Absent <code>exhaustive</code>, no such conclusion follows; the listed
+prefixes are a subset.  A consumer <span class="bcp14">MAY</span> nonetheless count the absence
+of a matching prefix as a weak signal against the claim, for example
+as one input to its own risk scoring, provided it does not reject or
+otherwise treat the request as refuted on that basis alone. A
+service that has no prefixes (<a href="#schema" class="auto internal xref">Section 4.3</a>) and is marked <code>exhaustive</code>
+is valid and means that the service currently sends from nowhere, so
+every request claiming it is refuted. A publisher can use this to
+retire a service name, or to disown one it has never used but sees
+being impersonated.<a href="#section-7-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-7-2.5">Refutation by prefix (<code>exclusive</code>):</dt>
+        <dd style="margin-left: 1.5em" id="section-7-2.6">
+          <p id="section-7-2.6.1">If the prefix governing an address (<a href="#overlaps" class="auto internal xref">Section 4.4.3</a>) is exclusive, the
+publisher has stated that none of its other services send from
+there. A request from that address claiming any of the publisher's
+services <em>other than</em> those associated with that prefix (or claiming
+any of them at all, if the prefix has no associated service) is
+therefore not from the publisher.  The consumer <span class="bcp14">MUST</span> treat the claim as
+refuted, <span class="bcp14">MUST NOT</span> extend to the request any treatment it reserves
+for the claimed service, and <span class="bcp14">MAY</span> additionally reject the request.
+Absent <code>exclusive</code>, no such conclusion follows.<a href="#section-7-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+      <dd class="break"></dd>
+</dl>
+<p id="section-7-3">Used together the two assertions close the mapping in both directions:
+<code>exhaustive</code> says "this service of ours, only from here"; <code>exclusive</code>
+says "from here, only these services of ours". Where either refutation
+permits a consumer to reject the request, this document does not
+specify the form the rejection takes (see the note at the end of this
+section).<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">These conclusions serve permissive decisions as well as restrictive
+ones. A consumer <span class="bcp14">MAY</span> use confirmation to allowlist a service — for
+example to exempt requests that claim S and arrive from S's prefixes
+from challenges, rate limits, or blocks applied to other automated
+traffic — just as it uses the refutations to deny impostors. In
+every case the decision is keyed on the pair of claimed identity and
+source address, never on the address alone.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<p id="section-7-5">A SAIL document provides no basis for any of the following, and a
+consumer that acts as though it did is acting on its own evidence,
+outside this format (<a href="#unverified-claims" class="auto internal xref">Section 9.2</a>):<a href="#section-7-5" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7-6.1">
+          <p id="section-7-6.1.1">that traffic from a listed prefix which makes no identity claim, or
+claims some other operator's identity, is from the publisher — no key
+in the format speaks to unidentified traffic, and <code>exclusive</code> concerns
+only which of the publisher's <em>own</em> services use a prefix, not who
+else does;<a href="#section-7-6.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-7-6.2">
+          <p id="section-7-6.2.1">that the publisher owns, is the registered holder of, or is the sole
+occupant of any prefix it lists;<a href="#section-7-6.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-7-6.3">
+          <p id="section-7-6.3.1">anything about parties other than the publisher — two publishers may
+list overlapping prefixes, each truthfully;<a href="#section-7-6.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-7-6.4">
+          <p id="section-7-6.4.1">either refutation above when the corresponding flag is false or
+absent.<a href="#section-7-6.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-7-7">[[EDNOTE: Open issue: We should define response error codes and a way
+for signaling why SAIL metadata caused the request to be refused.]]<a href="#section-7-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="publisher">
+<section id="section-8">
+      <h2 id="name-publisher-responsibilities">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-publisher-responsibilities" class="section-name selfRef">Publisher Responsibilities</a>
+      </h2>
+<p id="section-8-1">The value of a SAIL document to consumers, and the safety of its
+assertions, rest entirely on the publisher keeping it true.<a href="#section-8-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-8-2">
+        <dt id="section-8-2.1">Accuracy:</dt>
+        <dd style="margin-left: 1.5em" id="section-8-2.2">
+          <p id="section-8-2.2.1">A publisher <span class="bcp14">MUST NOT</span> list prefixes it does not control, nor any
+prefix from which its traffic cannot actually originate, nor any
+prefix outside the space permitted by <a href="#prefix-validity" class="auto internal xref">Section 4.4.2</a>. It <span class="bcp14">MUST NOT</span> set <code>exhaustive</code> or <code>exclusive</code> unless the assertion is true when
+published and is expected to remain true until the document's
+effective expiry (<a href="#validity" class="auto internal xref">Section 5</a>). In particular, a publisher <span class="bcp14">SHOULD</span>
+add new egress addresses to the document, and allow the previously
+published document's validity period to elapse, before an
+<code>exhaustive</code> service begins sending from them. A false assertion
+harms no third party; its cost falls on the publisher's own traffic
+and on consumers that wanted it (<a href="#false-assertions" class="auto internal xref">Section 9.3</a>).<a href="#section-8-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-8-2.3">Completeness:</dt>
+        <dd style="margin-left: 1.5em" id="section-8-2.4">
+          <p id="section-8-2.4.1">A publisher <span class="bcp14">SHOULD</span> set <code>exhaustive</code> on every service for which it is
+true. A document without it lets consumers confirm genuine requests
+but never refute impostors, which forgoes the format's main benefit.
+A publisher <span class="bcp14">MAY</span> list, with no prefixes and <code>exhaustive</code> set, names it
+has retired or has never used but sees impersonated (<a href="#inference" class="auto internal xref">Section 7</a>),
+and <span class="bcp14">MAY</span> list, as an <code>exclusive</code> prefix set that no service
+references, address space it holds but sends nothing from
+(<a href="#schema" class="auto internal xref">Section 4.3</a>).<a href="#section-8-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-8-2.5">Shared address space:</dt>
+        <dd style="margin-left: 1.5em" id="section-8-2.6">
+          <p id="section-8-2.6.1">Listing address space that the publisher shares with other parties —
+a provider's general-purpose egress pool, for example — allows those
+parties' traffic to be confirmed as the publisher's services, since
+confirmation rests on source address alone. A publisher <span class="bcp14">SHOULD</span>
+prefer dedicated egress for any service whose identity consumers are
+expected to act on, and <span class="bcp14">SHOULD NOT</span> mark shared space <code>exclusive</code>:
+although the assertion concerns only the publisher's own services
+and may be literally true, it signals dedicated use and invites the
+over-reading cautioned against in <a href="#unverified-claims" class="auto internal xref">Section 9.2</a>.<a href="#section-8-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-8-2.7">Stable origin:</dt>
+        <dd style="margin-left: 1.5em" id="section-8-2.8">
+          <p id="section-8-2.8.1">Because consumers attach trust to the pair (origin, service name)
+(<a href="#http" class="auto internal xref">Section 6</a>), a publisher <span class="bcp14">SHOULD</span> serve its SAIL document from one
+well-known origin, link to it from its crawler documentation, and
+keep the host in its clients' <code>User-Agent</code> comment stable, so that
+consumers can associate the pair once and are not exposed to the
+confusion described in <a href="#counterfeit-origin" class="auto internal xref">Section 9.6</a>.<a href="#section-8-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+      <dd class="break"></dd>
+</dl>
+<p id="section-8-3">Other publisher requirements appear where they arise: location and
+discovery in <a href="#location" class="auto internal xref">Section 3</a>, choice of service names in <a href="#http" class="auto internal xref">Section 6</a>,
+canonical prefix form in <a href="#prefix-syntax" class="auto internal xref">Section 4.4.1</a>, HTTP freshness in
+<a href="#validity" class="auto internal xref">Section 5</a>, and granularity of disclosure in <a href="#disclosure" class="auto internal xref">Section 9.4</a>.<a href="#section-8-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="security">
+<section id="section-9">
+      <h2 id="name-security-considerations">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<div id="request-derived-fetch">
+<section id="section-9.1">
+        <h3 id="name-fetching-from-request-deriv">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-fetching-from-request-deriv" class="section-name selfRef">Fetching from Request-Derived Locations</a>
+        </h3>
+<p id="section-9.1-1">A consumer that derives the location of a SAIL document from the host
+of the URL in a request's User-Agent comment (<a href="#location" class="auto internal xref">Section 3</a>) is acting
+on attacker-controlled input.  Any client can name any host, turning
+the consumer into a fetcher of the attacker's choosing. A consumer
+doing so <span class="bcp14">SHOULD NOT</span> fetch inline with handling the triggering request,
+<span class="bcp14">MUST</span> fetch only via "https" on port 443 at exactly the well-known
+path, <span class="bcp14">MUST</span> rate-limit fetches, and <span class="bcp14">SHOULD</span> cache
+negative results, so that a stream of requests naming fresh hosts
+cannot be used for request amplification or to probe internal
+services. Only the host of the URL is used: any port, path, or query
+it carries is ignored, a URL whose scheme is not "http" or "https" is
+ignored, and a consumer <span class="bcp14">MUST NOT</span> fetch when the host is an IP literal.<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="unverified-claims">
+<section id="section-9.2">
+        <h3 id="name-unverified-prefix-claims">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-unverified-prefix-claims" class="section-name selfRef">Unverified Prefix Claims</a>
+        </h3>
+<p id="section-9.2-1">Nothing in a SAIL document establishes that the publisher controls,
+holds, or solely occupies any address it lists. The format carries no
+proof of holdership, and a careless or hostile publisher can list space
+belonging to, or shared with, someone else. The inferences in
+<a href="#inference" class="auto internal xref">Section 7</a> tolerate this because each is keyed on a claim of the
+publisher's own identity: a wrong listing causes the publisher's names
+to be honoured or refused in the wrong places and affects no one else.
+Any decision keyed on the address alone — admitting, blocking, or
+labelling traffic from a listed prefix regardless of what identity it
+claims — lacks that protection and lands on whoever actually occupies
+the space. A consumer that makes such a decision is acting on its own
+evidence, outside this format, and should first establish the
+publisher's control of the prefix by independent means (for example
+forward-confirmed reverse DNS, or RPKI <span>[<a href="#RFC6480" class="cite xref">RFC6480</a>]</span> or IRR origin
+data), bearing in mind that control does not imply sole occupancy.<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="false-assertions">
+<section id="section-9.3">
+        <h3 id="name-false-assertions">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-false-assertions" class="section-name selfRef">False Assertions</a>
+        </h3>
+<p id="section-9.3-1">A false <code>exhaustive</code> (the service in fact also sends from elsewhere)
+or a false <code>exclusive</code> (another of the publisher's services in fact
+also sends from the set) causes consumers to refuse genuine traffic
+from the publisher the treatment it is due. The harm falls on the
+publisher, which is the party that made the assertion; third parties
+are unaffected because neither assertion concerns them. In-document
+expiry (<a href="#validity" class="auto internal xref">Section 5</a>) bounds how long a once-true assertion can
+outlive the deployment it described.<a href="#section-9.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="disclosure">
+<section id="section-9.4">
+        <h3 id="name-infrastructure-disclosure">
+<a href="#section-9.4" class="section-number selfRef">9.4. </a><a href="#name-infrastructure-disclosure" class="section-name selfRef">Infrastructure Disclosure</a>
+        </h3>
+<p id="section-9.4-1">A SAIL document necessarily reveals something about the publisher's
+egress.  Fine-grained prefix sets and service names can reveal
+considerably more: data-centre footprint, provider relationships,
+internal service boundaries, and the timing of deployments as entries
+appear and disappear. Publishers should treat the document as a public
+interface and choose its granularity accordingly.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="redirected">
+<section id="section-9.5">
+        <h3 id="name-redirected-documents">
+<a href="#section-9.5" class="section-number selfRef">9.5. </a><a href="#name-redirected-documents" class="section-name selfRef">Redirected Documents</a>
+        </h3>
+<p id="section-9.5-1">Because a document reached by redirect is attributed to the origin that
+issued the redirect (<a href="#location" class="auto internal xref">Section 3</a>), an origin can point its well-known
+URI at some other publisher's document. Doing so is self-limiting: the
+redirecting origin thereby adopts that document's prefixes and
+assertions as its own statement about its own service names, and can
+cause only claims of (its own origin, name) to be confirmed or refuted
+by them (<a href="#http" class="auto internal xref">Section 6</a>). It gains nothing it could not have said directly,
+and the other publisher's names are unaffected.<a href="#section-9.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="counterfeit-origin">
+<section id="section-9.6">
+        <h3 id="name-counterfeit-documentation-u">
+<a href="#section-9.6" class="section-number selfRef">9.6. </a><a href="#name-counterfeit-documentation-u" class="section-name selfRef">Counterfeit Documentation URLs</a>
+        </h3>
+<p id="section-9.6-1">A SAIL document speaks for the origin at whose well-known URI it was
+requested (<a href="#location" class="auto internal xref">Section 3</a>), not for any product token that appears in it.
+Nothing prevents an impostor from sending<a href="#section-9.6-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.6-2">
+<pre>
+User-Agent: AcmeBot/1.0 (+https://not-really-acme.example/bot.html)
+</pre><a href="#section-9.6-2" class="pilcrow">¶</a>
+</div>
+<p id="section-9.6-3">and serving, at <code>https://not-really-acme.example/.well-known/sail</code>, a
+well-formed document that lists the impostor's own addresses under a
+service named <code>AcmeBot</code> with <code>exhaustive = true</code>. A consumer that
+derives the document's location from the User-Agent comment
+(<a href="#location" class="auto internal xref">Section 3</a>) and then checks the request against that document will find
+the claim "confirmed" — correctly, in the narrow sense that the operator
+of <code>not-really-acme.example</code> did send it — while learning nothing about
+whether Acme did.<a href="#section-9.6-3" class="pilcrow">¶</a></p>
+<p id="section-9.6-4">This is why <a href="#http" class="auto internal xref">Section 6</a> defines the identity as the pair (origin, service
+name) and why a request-supplied URL is not evidence of authority. A
+consumer that has pinned (<code>acme.example</code>, <code>AcmeBot</code>) by means outside
+the request is unaffected: the counterfeit document speaks only for
+<code>not-really-acme.example</code>, and if Acme's genuine document marks
+<code>AcmeBot</code> <code>exhaustive</code>, the impostor's request is refuted by it
+regardless of what the counterfeit says, and the consumer <span class="bcp14">SHOULD</span> act
+on that refutation. A consumer with no pinned origin for <code>AcmeBot</code>
+learns from the counterfeit document only that some party at
+<code>not-really-acme.example</code> vouches for the request, and <span class="bcp14">MUST NOT</span> carry
+over to it any standing it associates with Acme.  <a href="#publisher" class="auto internal xref">Section 8</a>
+advises publishers on keeping their origin stable so that this
+confusion does not arise for their own names.<a href="#section-9.6-4" class="pilcrow">¶</a></p>
+<p id="section-9.6-5">[[EDNOTE: Should we discuss <code>Forwarded</code> and <code>X-Forwarded-For</code>
+headers?]]<a href="#section-9.6-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="iana">
+<section id="section-10">
+      <h2 id="name-iana-considerations">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<div id="well-known-uri">
+<section id="section-10.1">
+        <h3 id="name-well-known-uri">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-well-known-uri" class="section-name selfRef">Well-Known URI</a>
+        </h3>
+<p id="section-10.1-1">IANA is requested to register the following in the "Well-Known URIs"
+registry established by <span>[<a href="#RFC8615" class="cite xref">RFC8615</a>]</span>:<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-10.1-2">
+          <dt id="section-10.1-2.1">URI suffix:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.1-2.2">
+            <p id="section-10.1-2.2.1">sail<a href="#section-10.1-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.1-2.3">Change controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.1-2.4">
+            <p id="section-10.1-2.4.1">IETF<a href="#section-10.1-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.1-2.5">Specification document(s):</dt>
+          <dd style="margin-left: 1.5em" id="section-10.1-2.6">
+            <p id="section-10.1-2.6.1">this document, <a href="#location" class="auto internal xref">Section 3</a><a href="#section-10.1-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.1-2.7">Status:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.1-2.8">
+            <p id="section-10.1-2.8.1">permanent<a href="#section-10.1-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.1-2.9">Related information:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.1-2.10">
+            <p id="section-10.1-2.10.1">N/A<a href="#section-10.1-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="media-type">
+<section id="section-10.2">
+        <h3 id="name-media-type">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-media-type" class="section-name selfRef">Media Type</a>
+        </h3>
+<p id="section-10.2-1">IANA is requested to register the following in the "Media Types"
+registry, per the procedure in <span>[<a href="#RFC6838" class="cite xref">RFC6838</a>]</span>:<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-10.2-2">
+          <dt id="section-10.2-2.1">Type name:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.2">
+            <p id="section-10.2-2.2.1">application<a href="#section-10.2-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.3">Subtype name:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.4">
+            <p id="section-10.2-2.4.1">sail+toml<a href="#section-10.2-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.5">Required parameters:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.6">
+            <p id="section-10.2-2.6.1">N/A<a href="#section-10.2-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.7">Optional parameters:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.8">
+            <p id="section-10.2-2.8.1">N/A. The format version is carried in-document by the <code>schema</code> key
+(<a href="#schema" class="auto internal xref">Section 4.3</a>).<a href="#section-10.2-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.9">Encoding considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.10">
+            <p id="section-10.2-2.10.1">8bit. A SAIL document is TOML, which is UTF-8 text
+(<a href="#serialization" class="auto internal xref">Section 4.1</a>).<a href="#section-10.2-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.11">Security considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.12">
+            <p id="section-10.2-2.12.1">see <a href="#security" class="auto internal xref">Section 9</a><a href="#section-10.2-2.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.13">Interoperability considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.14">
+            <p id="section-10.2-2.14.1">Consumers accept a document that parses and validates regardless of
+the Content-Type it was served with (<a href="#location" class="auto internal xref">Section 3</a>), to accommodate
+publishers on static hosting that cannot set this type.<a href="#section-10.2-2.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.15">Published specification:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.16">
+            <p id="section-10.2-2.16.1">this document<a href="#section-10.2-2.16.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.17">Applications that use this media type:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.18">
+            <p id="section-10.2-2.18.1">operators of automated HTTP clients publishing their egress
+addresses, and sites and intermediaries verifying the claimed
+identity of automated requests<a href="#section-10.2-2.18.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.19">Fragment identifier considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.20">
+            <p id="section-10.2-2.20.1">N/A<a href="#section-10.2-2.20.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.21">Additional information:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.22">
+            <p id="section-10.2-2.22.1">Deprecated alias names for this type: N/A.
+Magic number(s): N/A.
+File extension(s): N/A.
+Macintosh file type code(s): N/A.<a href="#section-10.2-2.22.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.23">Person &amp; email address to contact for further information:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.24">
+            <p id="section-10.2-2.24.1">see Authors' Addresses<a href="#section-10.2-2.24.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.25">Intended usage:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.26">
+            <p id="section-10.2-2.26.1">COMMON<a href="#section-10.2-2.26.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.27">Restrictions on usage:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.28">
+            <p id="section-10.2-2.28.1">N/A<a href="#section-10.2-2.28.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.29">Author:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.30">
+            <p id="section-10.2-2.30.1">see Authors' Addresses<a href="#section-10.2-2.30.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-10.2-2.31">Change controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-2.32">
+            <p id="section-10.2-2.32.1">IETF<a href="#section-10.2-2.32.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="structured-syntax-suffix">
+<section id="section-10.3">
+        <h3 id="name-structured-syntax-suffix">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-structured-syntax-suffix" class="section-name selfRef">Structured Syntax Suffix</a>
+        </h3>
+<p id="section-10.3-1">[[EDNOTE: <code>+toml</code> is not currently in the IANA "Structured Syntax
+Suffixes" registry. Either this document registers it per Section 6 of
+<span>[<a href="#RFC6838" class="cite xref">RFC6838</a>]</span> (Name: TOML; +suffix: +toml; References: <span>[<a href="#TOML" class="cite xref">TOML</a>]</span>;
+encoding, fragment identifier, and security considerations as for TOML
+text; Contact and Change controller: IETF), or the media type above
+falls back to a bare <code>application/sail</code>. To be resolved before this
+document progresses.]]<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-11">
+      <h2 id="name-references">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-11.1">
+        <h3 id="name-normative-references">
+<a href="#section-11.1" class="section-number selfRef">11.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="IANA-IPV4-SP">[IANA-IPV4-SP]</dt>
+        <dd>
+<span class="refAuthor">IANA</span>, <span class="refTitle">"IANA IPv4 Special-Purpose Address Registry"</span>, <span>&lt;<a href="https://www.iana.org/assignments/iana-ipv4-special-registry/">https://www.iana.org/assignments/iana-ipv4-special-registry/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="IANA-IPV6-SP">[IANA-IPV6-SP]</dt>
+        <dd>
+<span class="refAuthor">IANA</span>, <span class="refTitle">"IANA IPv6 Special-Purpose Address Registry"</span>, <span>&lt;<a href="https://www.iana.org/assignments/iana-ipv6-special-registry/">https://www.iana.org/assignments/iana-ipv6-special-registry/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC3629">[RFC3629]</dt>
+        <dd>
+<span class="refAuthor">Yergeau, F.</span>, <span class="refTitle">"UTF-8, a transformation format of ISO 10646"</span>, <span class="seriesInfo">STD 63</span>, <span class="seriesInfo">RFC 3629</span>, <span class="seriesInfo">DOI 10.17487/RFC3629</span>, <time datetime="2003-11" class="refDate">November 2003</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc3629">https://www.rfc-editor.org/rfc/rfc3629</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4291">[RFC4291]</dt>
+        <dd>
+<span class="refAuthor">Hinden, R.</span> and <span class="refAuthor">S. Deering</span>, <span class="refTitle">"IP Version 6 Addressing Architecture"</span>, <span class="seriesInfo">RFC 4291</span>, <span class="seriesInfo">DOI 10.17487/RFC4291</span>, <time datetime="2006-02" class="refDate">February 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc4291">https://www.rfc-editor.org/rfc/rfc4291</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4632">[RFC4632]</dt>
+        <dd>
+<span class="refAuthor">Fuller, V.</span> and <span class="refAuthor">T. Li</span>, <span class="refTitle">"Classless Inter-domain Routing (CIDR): The Internet Address Assignment and Aggregation Plan"</span>, <span class="seriesInfo">BCP 122</span>, <span class="seriesInfo">RFC 4632</span>, <span class="seriesInfo">DOI 10.17487/RFC4632</span>, <time datetime="2006-08" class="refDate">August 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc4632">https://www.rfc-editor.org/rfc/rfc4632</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5952">[RFC5952]</dt>
+        <dd>
+<span class="refAuthor">Kawamura, S.</span> and <span class="refAuthor">M. Kawashima</span>, <span class="refTitle">"A Recommendation for IPv6 Address Text Representation"</span>, <span class="seriesInfo">RFC 5952</span>, <span class="seriesInfo">DOI 10.17487/RFC5952</span>, <time datetime="2010-08" class="refDate">August 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5952">https://www.rfc-editor.org/rfc/rfc5952</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6890">[RFC6890]</dt>
+        <dd>
+<span class="refAuthor">Cotton, M.</span>, <span class="refAuthor">Vegoda, L.</span>, <span class="refAuthor">Bonica, R., Ed.</span>, and <span class="refAuthor">B. Haberman</span>, <span class="refTitle">"Special-Purpose IP Address Registries"</span>, <span class="seriesInfo">BCP 153</span>, <span class="seriesInfo">RFC 6890</span>, <span class="seriesInfo">DOI 10.17487/RFC6890</span>, <time datetime="2013-04" class="refDate">April 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6890">https://www.rfc-editor.org/rfc/rfc6890</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+        <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8615">[RFC8615]</dt>
+        <dd>
+<span class="refAuthor">Nottingham, M.</span>, <span class="refTitle">"Well-Known Uniform Resource Identifiers (URIs)"</span>, <span class="seriesInfo">RFC 8615</span>, <span class="seriesInfo">DOI 10.17487/RFC8615</span>, <time datetime="2019-05" class="refDate">May 2019</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8615">https://www.rfc-editor.org/rfc/rfc8615</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9110">[RFC9110]</dt>
+        <dd>
+<span class="refAuthor">Fielding, R., Ed.</span>, <span class="refAuthor">Nottingham, M., Ed.</span>, and <span class="refAuthor">J. Reschke, Ed.</span>, <span class="refTitle">"HTTP Semantics"</span>, <span class="seriesInfo">STD 97</span>, <span class="seriesInfo">RFC 9110</span>, <span class="seriesInfo">DOI 10.17487/RFC9110</span>, <time datetime="2022-06" class="refDate">June 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9110">https://www.rfc-editor.org/rfc/rfc9110</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9111">[RFC9111]</dt>
+        <dd>
+<span class="refAuthor">Fielding, R., Ed.</span>, <span class="refAuthor">Nottingham, M., Ed.</span>, and <span class="refAuthor">J. Reschke, Ed.</span>, <span class="refTitle">"HTTP Caching"</span>, <span class="seriesInfo">STD 98</span>, <span class="seriesInfo">RFC 9111</span>, <span class="seriesInfo">DOI 10.17487/RFC9111</span>, <time datetime="2022-06" class="refDate">June 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9111">https://www.rfc-editor.org/rfc/rfc9111</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9309">[RFC9309]</dt>
+        <dd>
+<span class="refAuthor">Koster, M.</span>, <span class="refAuthor">Illyes, G.</span>, <span class="refAuthor">Zeller, H.</span>, and <span class="refAuthor">L. Sassman</span>, <span class="refTitle">"Robots Exclusion Protocol"</span>, <span class="seriesInfo">RFC 9309</span>, <span class="seriesInfo">DOI 10.17487/RFC9309</span>, <time datetime="2022-09" class="refDate">September 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9309">https://www.rfc-editor.org/rfc/rfc9309</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="TOML">[TOML]</dt>
+      <dd>
+<span class="refTitle">"TOML: Tom's Obvious Minimal Language, v1.0.0"</span>, <time datetime="2021" class="refDate">2021</time>, <span>&lt;<a href="https://toml.io/en/v1.0.0">https://toml.io/en/v1.0.0</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-11.2">
+        <h3 id="name-informative-references">
+<a href="#section-11.2" class="section-number selfRef">11.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="CBCP">[CBCP]</dt>
+        <dd>
+<span class="refTitle">"Crawler Best Practices"</span>, <time datetime="2026" class="refDate">2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-illyes-aipref-cbcp/">https://datatracker.ietf.org/doc/draft-illyes-aipref-cbcp/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC3056">[RFC3056]</dt>
+        <dd>
+<span class="refAuthor">Carpenter, B.</span> and <span class="refAuthor">K. Moore</span>, <span class="refTitle">"Connection of IPv6 Domains via IPv4 Clouds"</span>, <span class="seriesInfo">RFC 3056</span>, <span class="seriesInfo">DOI 10.17487/RFC3056</span>, <time datetime="2001-02" class="refDate">February 2001</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc3056">https://www.rfc-editor.org/rfc/rfc3056</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC3339">[RFC3339]</dt>
+        <dd>
+<span class="refAuthor">Klyne, G.</span> and <span class="refAuthor">C. Newman</span>, <span class="refTitle">"Date and Time on the Internet: Timestamps"</span>, <span class="seriesInfo">RFC 3339</span>, <span class="seriesInfo">DOI 10.17487/RFC3339</span>, <time datetime="2002-07" class="refDate">July 2002</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc3339">https://www.rfc-editor.org/rfc/rfc3339</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC3849">[RFC3849]</dt>
+        <dd>
+<span class="refAuthor">Huston, G.</span>, <span class="refAuthor">Lord, A.</span>, and <span class="refAuthor">P. Smith</span>, <span class="refTitle">"IPv6 Address Prefix Reserved for Documentation"</span>, <span class="seriesInfo">RFC 3849</span>, <span class="seriesInfo">DOI 10.17487/RFC3849</span>, <time datetime="2004-07" class="refDate">July 2004</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc3849">https://www.rfc-editor.org/rfc/rfc3849</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4380">[RFC4380]</dt>
+        <dd>
+<span class="refAuthor">Huitema, C.</span>, <span class="refTitle">"Teredo: Tunneling IPv6 over UDP through Network Address Translations (NATs)"</span>, <span class="seriesInfo">RFC 4380</span>, <span class="seriesInfo">DOI 10.17487/RFC4380</span>, <time datetime="2006-02" class="refDate">February 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc4380">https://www.rfc-editor.org/rfc/rfc4380</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5737">[RFC5737]</dt>
+        <dd>
+<span class="refAuthor">Arkko, J.</span>, <span class="refAuthor">Cotton, M.</span>, and <span class="refAuthor">L. Vegoda</span>, <span class="refTitle">"IPv4 Address Blocks Reserved for Documentation"</span>, <span class="seriesInfo">RFC 5737</span>, <span class="seriesInfo">DOI 10.17487/RFC5737</span>, <time datetime="2010-01" class="refDate">January 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5737">https://www.rfc-editor.org/rfc/rfc5737</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5771">[RFC5771]</dt>
+        <dd>
+<span class="refAuthor">Cotton, M.</span>, <span class="refAuthor">Vegoda, L.</span>, and <span class="refAuthor">D. Meyer</span>, <span class="refTitle">"IANA Guidelines for IPv4 Multicast Address Assignments"</span>, <span class="seriesInfo">BCP 51</span>, <span class="seriesInfo">RFC 5771</span>, <span class="seriesInfo">DOI 10.17487/RFC5771</span>, <time datetime="2010-03" class="refDate">March 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5771">https://www.rfc-editor.org/rfc/rfc5771</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6052">[RFC6052]</dt>
+        <dd>
+<span class="refAuthor">Bao, C.</span>, <span class="refAuthor">Huitema, C.</span>, <span class="refAuthor">Bagnulo, M.</span>, <span class="refAuthor">Boucadair, M.</span>, and <span class="refAuthor">X. Li</span>, <span class="refTitle">"IPv6 Addressing of IPv4/IPv6 Translators"</span>, <span class="seriesInfo">RFC 6052</span>, <span class="seriesInfo">DOI 10.17487/RFC6052</span>, <time datetime="2010-10" class="refDate">October 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6052">https://www.rfc-editor.org/rfc/rfc6052</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6480">[RFC6480]</dt>
+        <dd>
+<span class="refAuthor">Lepinski, M.</span> and <span class="refAuthor">S. Kent</span>, <span class="refTitle">"An Infrastructure to Support Secure Internet Routing"</span>, <span class="seriesInfo">RFC 6480</span>, <span class="seriesInfo">DOI 10.17487/RFC6480</span>, <time datetime="2012-02" class="refDate">February 2012</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6480">https://www.rfc-editor.org/rfc/rfc6480</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6838">[RFC6838]</dt>
+        <dd>
+<span class="refAuthor">Freed, N.</span>, <span class="refAuthor">Klensin, J.</span>, and <span class="refAuthor">T. Hansen</span>, <span class="refTitle">"Media Type Specifications and Registration Procedures"</span>, <span class="seriesInfo">BCP 13</span>, <span class="seriesInfo">RFC 6838</span>, <span class="seriesInfo">DOI 10.17487/RFC6838</span>, <time datetime="2013-01" class="refDate">January 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6838">https://www.rfc-editor.org/rfc/rfc6838</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7450">[RFC7450]</dt>
+        <dd>
+<span class="refAuthor">Bumgardner, G.</span>, <span class="refTitle">"Automatic Multicast Tunneling"</span>, <span class="seriesInfo">RFC 7450</span>, <span class="seriesInfo">DOI 10.17487/RFC7450</span>, <time datetime="2015-02" class="refDate">February 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7450">https://www.rfc-editor.org/rfc/rfc7450</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7526">[RFC7526]</dt>
+        <dd>
+<span class="refAuthor">Troan, O.</span> and <span class="refAuthor">B. Carpenter, Ed.</span>, <span class="refTitle">"Deprecating the Anycast Prefix for 6to4 Relay Routers"</span>, <span class="seriesInfo">BCP 196</span>, <span class="seriesInfo">RFC 7526</span>, <span class="seriesInfo">DOI 10.17487/RFC7526</span>, <time datetime="2015-05" class="refDate">May 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7526">https://www.rfc-editor.org/rfc/rfc7526</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7534">[RFC7534]</dt>
+        <dd>
+<span class="refAuthor">Abley, J.</span> and <span class="refAuthor">W. Sotomayor</span>, <span class="refTitle">"AS112 Nameserver Operations"</span>, <span class="seriesInfo">RFC 7534</span>, <span class="seriesInfo">DOI 10.17487/RFC7534</span>, <time datetime="2015-05" class="refDate">May 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7534">https://www.rfc-editor.org/rfc/rfc7534</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7535">[RFC7535]</dt>
+        <dd>
+<span class="refAuthor">Abley, J.</span>, <span class="refAuthor">Dickson, B.</span>, <span class="refAuthor">Kumari, W.</span>, and <span class="refAuthor">G. Michaelson</span>, <span class="refTitle">"AS112 Redirection Using DNAME"</span>, <span class="seriesInfo">RFC 7535</span>, <span class="seriesInfo">DOI 10.17487/RFC7535</span>, <time datetime="2015-05" class="refDate">May 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7535">https://www.rfc-editor.org/rfc/rfc7535</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8190">[RFC8190]</dt>
+        <dd>
+<span class="refAuthor">Bonica, R.</span>, <span class="refAuthor">Cotton, M.</span>, <span class="refAuthor">Haberman, B.</span>, and <span class="refAuthor">L. Vegoda</span>, <span class="refTitle">"Updates to the Special-Purpose IP Address Registries"</span>, <span class="seriesInfo">BCP 153</span>, <span class="seriesInfo">RFC 8190</span>, <span class="seriesInfo">DOI 10.17487/RFC8190</span>, <time datetime="2017-06" class="refDate">June 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8190">https://www.rfc-editor.org/rfc/rfc8190</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9421">[RFC9421]</dt>
+        <dd>
+<span class="refAuthor">Backman, A., Ed.</span>, <span class="refAuthor">Richer, J., Ed.</span>, and <span class="refAuthor">M. Sporny</span>, <span class="refTitle">"HTTP Message Signatures"</span>, <span class="seriesInfo">RFC 9421</span>, <span class="seriesInfo">DOI 10.17487/RFC9421</span>, <time datetime="2024-02" class="refDate">February 2024</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9421">https://www.rfc-editor.org/rfc/rfc9421</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="WBA-ARCH">[WBA-ARCH]</dt>
+      <dd>
+<span class="refTitle">"Web Bot Auth Architecture"</span>, <time datetime="2026" class="refDate">2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/">https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-A">
+      <h2 id="name-acknowledgments">
+<a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-A-1">TODO<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-address">
+<a href="#name-authors-address" class="section-name selfRef">Author's Address</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Kevin Kelley</span></div>
+<div dir="auto" class="left"><span class="org">Anthropic</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:kelleyk@anthropic.com" class="email">kelleyk@anthropic.com</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1112 @@
+
+
+
+
+Web Bot Auth                                                   K. Kelley
+Internet-Draft                                                 Anthropic
+Intended status: Standards Track                         22 October 2026
+Expires: 25 April 2027
+
+
+                   SAIL: Source Address Identity List
+                  draft-kelley-webbotauth-sail-latest
+
+Abstract
+
+   This document defines SAIL (Source Address Identity List), a metadata
+   format served at a well-known URI in which the operator of automated
+   HTTP clients publishes the IP prefixes its services send from,
+   together with two optional assertions: that a service sends from
+   nowhere else, and that nothing else of the operator's sends from a
+   given set of prefixes.  A site that receives a request claiming to be
+   one of those services can use that metadata to confirm the claim or,
+   under those assertions, to refute it.  The mechanism is intended to
+   complement reverse-DNS verification and HTTP Message Signatures.
+
+About This Document
+
+   This note is to be removed before publishing as an RFC.
+
+   Status information for this document may be found at
+   https://datatracker.ietf.org/doc/draft-kelley-webbotauth-sail/.
+
+   Discussion of this document takes place on the Web Bot Auth Working
+   Group mailing list (mailto:web-bot-auth@ietf.org), which is archived
+   at https://mailarchive.ietf.org/arch/browse/web-bot-auth/.  Subscribe
+   at https://www.ietf.org/mailman/listinfo/web-bot-auth/.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 25 April 2027.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction
+   2.  Conventions and Definitions
+   3.  Location of the SAIL Document
+   4.  Document Format
+     4.1.  Serialization
+     4.2.  Invalid Documents
+     4.3.  Schema
+       4.3.1.  Identifiers
+     4.4.  Prefixes
+       4.4.1.  Syntax
+       4.4.2.  Permitted Address Space
+       4.4.3.  Resolving Prefixes
+     4.5.  Example
+   5.  Validity Period
+   6.  Identity Claims
+   7.  Permissible Inferences
+   8.  Publisher Responsibilities
+   9.  Security Considerations
+     9.1.  Fetching from Request-Derived Locations
+     9.2.  Unverified Prefix Claims
+     9.3.  False Assertions
+     9.4.  Infrastructure Disclosure
+     9.5.  Redirected Documents
+     9.6.  Counterfeit Documentation URLs
+   10. IANA Considerations
+     10.1.  Well-Known URI
+     10.2.  Media Type
+     10.3.  Structured Syntax Suffix
+   11. References
+     11.1.  Normative References
+     11.2.  Informative References
+   Acknowledgments
+   Author's Address
+
+1.  Introduction
+
+   This document defines SAIL (Source Address Identity List), a machine-
+   readable and machine-discoverable metadata format that allows service
+   operators to publish information about which addresses other parties
+   should expect to receive inbound traffic from.  It also defines a
+   well-known URI for discovering that metadata.
+
+   Among other uses, this mechanism is intended to allow a consumer that
+   has received a request to determine whether the identity the request
+   claims is consistent with the address it arrived from.  For example,
+   it allows a consumer that has received an HTTP request to determine
+   whether the service named in the User-Agent header could have sent
+   it, or whether the request may be an attempt to impersonate that
+   service.
+
+   Operators of well-behaved automated clients already publish
+   documentation about the services that they operate, including e.g. IP
+   prefixes; however, each publisher chooses its own schema and
+   publication location today, which makes automatically consuming that
+   metadata difficult.
+
+   A SAIL document is published by a single operator and describes only
+   traffic that operator itself originates.  It identifies that
+   operator's services, not the people or organisations on whose behalf
+   a service may be acting: identity that is delegated, federated, or
+   scoped more finely than the operator — per user, per customer, or per
+   task — is outside the scope of this document.
+
+   Site operators extend privileges to automated clients they recognise
+   and trust, such as access that other clients are refused or higher
+   rate limits, so impersonating such a client is valuable.
+
+   This draft is intended to complement, and not to be an alternative
+   to, reverse-DNS verification and HTTP Message Signatures [RFC9421] as
+   applied to automated clients by [WBA-ARCH], which are two other
+   widespread means of accomplishing the same outcome.
+
+2.  Conventions and Definitions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+   This document uses the following terms:
+
+   Publisher:  The operator that generates and serves a SAIL document
+      describing its own services and the prefixes they send from.
+
+   Consumer:  A party that retrieves a SAIL document and acts on it,
+      typically the operator of a site that receives automated requests,
+      or an intermediary acting on such a site's behalf.
+
+   Holder:  Any party in possession of a copy of a SAIL document,
+      however obtained: a consumer that fetched it from the publisher,
+      or one that received it from a shared cache, a mirror, or a file.
+      Every consumer is a holder; Section 5 places obligations on
+      holders generally.
+
+   Origin:  The scheme, host, and port of a URI, as defined in
+      Section 4.3.1 of [RFC9110].  A SAIL document speaks for the origin
+      at whose well-known URI it was requested (Section 3).
+
+   Service:  A named source of outbound traffic operated by the
+      publisher, typically an automated HTTP client such as a crawler or
+      fetcher, described by an entry in the document's services array
+      (Section 4.3).  Section 6 describes how a request claims a
+      service.
+
+   Prefix:  An IPv4 or IPv6 address prefix in CIDR notation [RFC4632],
+      or a single address, written as described in Section 4.4.1.  "IP
+      range" and "address list" in deployed practice refer to the same
+      thing; arbitrary start–end ranges that are not a single prefix
+      cannot be expressed.
+
+   Prefix set:  A named collection of prefixes published together,
+      typically corresponding to one egress pool, and the unit over
+      which exclusive is asserted (Section 4.3).
+
+3.  Location of the SAIL Document
+
+   A publisher MUST serve its SAIL document at the well-known URI
+   [RFC8615] whose path component is "/.well-known/sail" on the origin
+   by which it wishes its services to be identified (Section 6):
+
+   https://example.com/.well-known/sail
+
+   The document MUST be served using the "https" scheme only; it MUST
+   NOT be served with any other URI scheme, and a consumer MUST query it
+   using HTTPS only.  If the HTTPS request fails, a consumer MUST NOT
+   reissue it over a non-secure connection.  A publisher MUST serve it
+   with status 200 (OK) and Content-Type application/sail+toml
+   (Section 4.1).  A consumer MUST NOT treat a response with any other
+   status code as a SAIL document, and MUST accept a 200 response whose
+   body parses and validates as a SAIL document (Section 4.3) whatever
+   Content-Type it carries.
+
+   Retrieval MAY result in an HTTP redirect, and redirects are handled
+   as [RFC9309] (Section 2.3.1.2) handles them for robots.txt.  A
+   consumer SHOULD follow at least five consecutive redirects, even
+   across origins; if the document is reached within five, it is
+   fetched, validated, and applied in the context of the origin whose
+   well-known URI was originally requested; if there are more than five,
+   the consumer MAY treat the document as unavailable.  Any such
+   redirect MUST be to an "https" URI; a consumer MUST NOT follow a
+   redirect to any other scheme.  A publisher MAY redirect other schemes
+   to "https".
+
+   A document obtained by following redirects therefore speaks for the
+   origin whose well-known URI was originally requested, not for the
+   origin that ultimately serves it: a redirect is an act of the
+   requested origin, and a consumer redirected from a.example to
+   b.example has obtained a.example's SAIL document.  This lets a
+   publisher serve one document for several hosts, or from static
+   hosting on another origin (Section 9.5).
+
+   The well-known path is the only location this specification defines.
+   Consumers MUST NOT look for the document elsewhere on the origin.
+
+   Many automated clients include, in the comment portion of their User-
+   Agent header field, a URL for a page describing the client and its
+   operator [CBCP].  A publisher whose clients do so MUST also serve its
+   SAIL document, directly or by redirect, at the well-known path on the
+   host of that URL, so that https://<that-host>/.well-known/sail
+   resolves as described above.  A consumer that receives such a request
+   can then derive the location of the publisher's SAIL document from
+   the request alone, without prior configuration.
+
+   A publisher SHOULD additionally link to the well-known URI from the
+   human-readable page that describes its automated clients, for example
+   alongside links to existing machine-readable lists of egress
+   addresses it already publishes.
+
+4.  Document Format
+
+   This section defines the serialization, schema, and prefix notation
+   of a SAIL document, and how a consumer resolves its prefixes.
+   Section 4.5 gives a complete example.
+
+4.1.  Serialization
+
+   A SAIL document is a TOML [TOML] document and, as TOML requires, MUST
+   be encoded in UTF-8 [RFC3629].  Its date-time values are TOML offset
+   date-times, which are [RFC3339] timestamps.  Its media type is
+   application/sail+toml (Section 10; the +toml suffix is not yet
+   registered, see the note there).
+
+   We use TOML rather than alternatives such as JSON so that the
+   document can carry comments.
+
+   A document MUST NOT exceed 524288 octets (512 KiB).  The limit
+   applies to the TOML text itself, after any HTTP content coding has
+   been removed, not to the size on the wire.  A consumer MAY stop
+   reading a response once the limit is passed.  A document that exceeds
+   the limit, is not valid UTF-8, or is not valid TOML is invalid
+   (Section 4.2).
+
+   [[EDNOTE: 512 KiB is a first guess.  Also open is whether per-item
+   limits (counts of prefix sets, services, or prefixes per set) are
+   needed in addition.]]
+
+4.2.  Invalid Documents
+
+   Wherever this specification says a document is _invalid_, a consumer
+   MUST ignore it in its entirety and MUST NOT act on any part of it.
+   In particular a consumer MUST NOT act on the readable portion of a
+   truncated or partly parseable document.  For example, an incomplete
+   list under exhaustive would cause genuine traffic to be rejected.
+
+   A final response with any status code other than 200 (OK), once
+   redirects have been followed, is invalid.
+
+   A consumer that already holds a valid document from the same origin
+   SHOULD continue to use it until its effective expiry (Section 5), as
+   if the invalid retrieval had not occurred.
+
+4.3.  Schema
+
+   A SAIL document (Section 4.1) is a single TOML table with the
+   following top-level keys.  Unrecognised keys at any level MUST be
+   ignored.
+
+   schema (string, REQUIRED):  The specification the document conforms
+      to; for this version, "draft-kelley-webbotauth-sail-00".
+
+   modified (offset date-time, REQUIRED):  When the document's content
+      last changed, for the benefit of mirrors, caches, and other
+      systems that track the metadata a SAIL document expresses.
+      Regenerating or re-serving unchanged content, or changing only the
+      expiry, MUST NOT advance it.
+
+   expires (offset date-time) / expires_after (integer seconds):  A
+      publisher MUST include exactly one. expires is the absolute
+      instant at which the content ceases to be valid (Section 5).
+      expires_after obliges any holder to refresh the document within
+      that many seconds of receiving it and not to rely on an
+      unrefreshed copy beyond that; it MUST NOT exceed 2592000 (30
+      days), and a consumer that receives a larger value MUST treat it
+      as 2592000.  It is provided for publishers for whom regularly
+      advancing an absolute expires is infeasible.  A document with
+      neither key is invalid (Section 4.2); a consumer that receives a
+      document with both MUST use whichever yields the earlier effective
+      expiry (Section 5).
+
+   prefix_sets (array of tables):  Each entry describes one egress pool:
+
+      *  name (identifier, REQUIRED; see Section 4.3.1) — unique within
+         the document and meaningless outside it.
+
+      *  ipv4_prefixes, ipv6_prefixes (arrays of strings) — prefixes in
+         the syntax of Section 4.4.1, subject to Section 4.4.2.
+
+      *  exclusive (boolean, default false) — the publisher asserts that
+         all of _its own_ use of these prefixes is described in this
+         SAIL document (Section 7).
+
+      A prefix set that no service references and is not marked
+      exclusive asserts nothing and MUST be ignored.  One that no
+      service references and _is_ marked exclusive is meaningful: it
+      states that none of the publisher's services send from those
+      prefixes, so that any request claiming one of them from there is
+      refuted (Section 7); a publisher can use this for address space it
+      holds but does not send from.  A prefix MAY appear in more than
+      one set and in service entries; Section 4.4.3 defines how
+      occurrences combine, and a prefix in an unreferenced exclusive set
+      that also appears elsewhere in the document takes its services
+      from those other occurrences.
+
+   services (array of tables):  Each entry describes one source of
+      outbound traffic:
+
+      *  name (identifier, REQUIRED; see Section 4.3.1) — unique within
+         the document.  This is the name a request claims (Section 6).
+
+      *  prefix_sets (array of identifiers) — names of prefix sets in
+         this document from which the service sends.  An unknown name
+         makes the document invalid.
+
+      *  ipv4_prefixes, ipv6_prefixes (arrays of strings) — prefixes
+         from which the service sends, listed directly.  Exactly
+         equivalent to an anonymous prefix set, referenced only by this
+         service, whose other keys all take their default values.
+
+      *  exhaustive (boolean, default false) — the publisher asserts
+         that this service sends from nowhere outside its prefixes as
+         resolved by Section 4.4.3 (Section 7; see Section 8 on when to
+         set it).
+
+      A service with no prefix_sets and no directly listed prefixes has
+      no prefixes.
+
+   A document with duplicate prefix-set names, duplicate service names,
+   a dangling prefix-set reference, an identifier that violates
+   Section 4.3.1, neither expiry key, or expires not later than modified
+   is invalid (Section 4.2).
+
+4.3.1.  Identifiers
+
+   Prefix-set names, service names, and the references to prefix sets in
+   a service's prefix_sets array are _identifiers_. An identifier is a
+   TOML string whose value:
+
+   *  MUST be a token as defined in Section 5.6.2 of [RFC9110]: one or
+      more of the ASCII characters ALPHA, DIGIT, and ! # $ % & ' * + - .
+      ^ _ ` | ~; and
+
+   *  MUST NOT exceed 128 characters.
+
+   Length limits on strings in this specification are stated in
+   characters and apply to the parsed TOML string value, after the
+   document has been decoded and any TOML escapes resolved; only the
+   overall document limit (Section 4.1) is stated in octets, because it
+   is checked before parsing.
+
+   This is the same grammar as an HTTP product name, so every service
+   name can appear verbatim in a User-Agent field value (Section 6) and
+   as a robots.txt product token, which [RFC9309] likewise matches case-
+   insensitively.
+
+   Identifiers are compared ASCII-case-insensitively: two identifiers
+   are equal if and only if they are identical, character for character,
+   after each character in the range U+0041–U+005A ("A"–"Z") is replaced
+   by the corresponding character in the range U+0061–U+007A ("a"–"z").
+   No other folding or normalisation is applied.  This rule governs
+   uniqueness of names within a document, resolution of prefix_sets
+   references, and matching a service name against a User-Agent field
+   value (Section 6).
+
+4.4.  Prefixes
+
+4.4.1.  Syntax
+
+   Each element of ipv4_prefixes and ipv6_prefixes is a TOML string in
+   exactly one of two forms:
+
+   *  CIDR notation [RFC4632]: an address in the family's textual form,
+      "/", and a decimal prefix length ("192.0.2.0/24",
+      "2001:db8::/32"); or
+
+   *  a bare address with no "/", which denotes that single address and
+      is equivalent to the same address with "/32" (IPv4) or "/128"
+      (IPv6).
+
+   No other form is permitted: start–end ranges, netmask notation,
+   wildcards, and lists within one string MUST NOT be used.  Each
+   element of ipv4_prefixes MUST be an IPv4 prefix and each element of
+   ipv6_prefixes an IPv6 prefix.  Publishers SHOULD write prefixes in
+   canonical form, with all bits beyond the prefix length zero and, for
+   IPv6, in the text representation of [RFC5952]; a consumer that
+   receives one with host bits set MUST honour it as the prefix obtained
+   by clearing those bits, and neither this nor a non-canonical text
+   representation alone makes the document invalid.
+
+4.4.2.  Permitted Address Space
+
+   A prefix MUST lie wholly within globally reachable unicast space.  It
+   MUST NOT overlap:
+
+   *  any block whose "Globally Reachable" property is anything other
+      than an unqualified True in the IANA IPv4 Special-Purpose Address
+      Registry [IANA-IPV4-SP] or IPv6 Special-Purpose Address Registry
+      [IANA-IPV6-SP] (established by [RFC6890] and [RFC8190]; this
+      covers private, shared, loopback, link-local, documentation,
+      benchmarking, discard, and reserved space);
+
+   *  multicast space (224.0.0.0/4 [RFC5771], ff00::/8 [RFC4291]);
+
+   *  IPv6 prefixes that embed IPv4 addresses (::ffff:0:0/96 and ::/96,
+      Section 2.5.5 of [RFC4291]); or
+
+   *  transition-mechanism and shared-anycast assignments from which no
+      single operator originates ordinary unicast traffic, even where
+      the registry marks them reachable: 6to4 (2002::/16 [RFC3056], and
+      the deprecated relay anycast prefix 192.88.99.0/24 [RFC7526]),
+      Teredo (2001::/32 [RFC4380]), the NAT64 well-known prefix
+      (64:ff9b::/96 [RFC6052]), AS112 (192.31.196.0/24 and
+      2001:4:112::/48 [RFC7535]; 192.175.48.0/24 and 2620:4f:8000::/48
+      [RFC7534]), and AMT (192.52.193.0/24 and 2001:3::/32 [RFC7450]).
+
+   The registries [IANA-IPV4-SP] [IANA-IPV6-SP] are authoritative for
+   the first item and consumers SHOULD track them as updated; the
+   remaining items are fixed by this specification.
+
+   A consumer MUST validate every prefix on receipt.  A document
+   containing any prefix that is malformed (Section 4.4.1), in the wrong
+   family for its key, or outside the permitted space MUST be treated as
+   invalid (Section 4.2).
+
+   [[EDNOTE: Whole-document rejection is simple and consistent with the
+   handling of unparseable and oversize documents, but one bad prefix
+   then withdraws the publisher's entire document until corrected.  More
+   graceful degradation is probably possible, but I haven't thought
+   about it carefully yet.]]
+
+4.4.3.  Resolving Prefixes
+
+   A consumer resolves a document into, for each address family, a map
+   from prefix to the set of services that send from it and whether it
+   is exclusive, as follows.
+
+   1.  Every prefix contributes equally, whether it appears in a named
+       prefix set or in a service's anonymous set (Section 4.3).  A
+       prefix is associated with every service that references the set
+       containing it (with no service, if it appears only in an
+       unreferenced exclusive set), and is exclusive if that set is
+       marked exclusive.  Prefixes of unreferenced sets not marked
+       exclusive do not contribute.
+
+   2.  After clearing host bits (Section 4.4.1), identical prefixes are
+       merged: the associated services are the union of those from each
+       occurrence, and the prefix is exclusive if any occurrence is.
+       Exact duplicates therefore carry no additional meaning and SHOULD
+       be discarded.
+
+   3.  For a given address, the _governing prefix_ is the longest
+       resolved prefix that contains it.  The services and exclusive
+       value that apply to the address are those of the governing prefix
+       alone; any shorter prefix that also contains the address
+       contributes nothing to it.  A publisher can thus list a broad
+       allocation under one service and carve a more specific prefix out
+       of it for another without enumerating the remainder.
+
+   An address is "within S's prefixes", for the purposes of Section 7,
+   if and only if S is among the services of its governing prefix.
+
+   A consumer that observes a request's source as an IPv4-mapped IPv6
+   address (Section 2.5.5.2 of [RFC4291], ::ffff:0:0/96), as is common
+   on dual-stack hosts, MUST match it against ipv4_prefixes as the
+   embedded IPv4 address and MUST NOT match it against ipv6_prefixes.
+
+4.5.  Example
+
+   The following is a complete SAIL document for a publisher that
+   operates two crawlers from a dedicated egress pool, a fetcher that
+   additionally uses shared corporate egress, holds a block it does not
+   send from, and wishes to disown a name it has retired.  The prefixes
+   shown are documentation prefixes [RFC5737] [RFC3849]; a real document
+   could not contain them (Section 4.4.2).
+
+   schema        = "draft-kelley-webbotauth-sail-00"
+   modified      = 2026-09-02T14:00:00Z
+   expires_after = 604800   # 7 days
+
+   # Dedicated crawl egress. All of our own use of these prefixes is
+   # described in this document.
+   [[prefix_sets]]
+   name          = "crawl"
+   exclusive     = true
+   ipv4_prefixes = ["192.0.2.0/24"]
+   ipv6_prefixes = ["2001:db8:4000::/40"]
+
+   # Shared with staff and other internal systems; not exclusive.
+   [[prefix_sets]]
+   name          = "corp"
+   ipv4_prefixes = ["198.51.100.64/26"]
+
+   # Held but unused: nothing of ours sends from here.
+   [[prefix_sets]]
+   name          = "parked"
+   exclusive     = true
+   ipv4_prefixes = ["198.51.100.0/26"]
+
+   # ExampleBot sends only from the crawl pool.
+   [[services]]
+   name        = "ExampleBot"
+   exhaustive  = true
+   prefix_sets = ["crawl"]
+
+   # ExampleBot-News sends only from two addresses, listed directly.
+   [[services]]
+   name          = "ExampleBot-News"
+   exhaustive    = true
+   ipv4_prefixes = ["203.0.113.7", "203.0.113.8"]
+
+   # Example-Fetcher sends from the crawl pool and corporate egress.
+   [[services]]
+   name        = "Example-Fetcher"
+   exhaustive  = true
+   prefix_sets = ["crawl", "corp"]
+
+   # Retired name; we send nothing as OldExampleBot any more.
+   [[services]]
+   name       = "OldExampleBot"
+   exhaustive = true
+
+   Based on the rules in Section 7:
+
+   *  A request claiming ExampleBot from 192.0.2.10 is confirmed.
+
+   *  One claiming ExampleBot from 198.51.100.70 is refuted, because
+      ExampleBot is exhaustive and that address is not within its
+      prefixes.
+
+   *  A request claiming Example-Fetcher from 198.51.100.70 is
+      confirmed.
+
+   *  A request from 192.0.2.10 claiming ExampleBot-News is refuted
+      twice over: ExampleBot-News is exhaustive and does not list that
+      address, and the governing prefix 192.0.2.0/24 is exclusive and
+      ExampleBot-News is not among its services.
+
+   *  Every request claiming OldExampleBot is refuted.
+
+   *  A request from 198.51.100.10 claiming any of these services is
+      refuted: parked is exclusive and no service references it.
+
+   *  The document says nothing about a request from 192.0.2.10 that
+      claims no identity, or that claims some other operator's.
+
+5.  Validity Period
+
+   HTTP caching [RFC9111] governs when a consumer refetches the
+   _resource_; modified and the expiry keys describe the _data_. The in-
+   document keys exist because HTTP response metadata is not always
+   passed along faithfully.
+
+   The _effective expiry_ of a document is the earliest of:
+
+   *  the value of expires, if present;
+
+   *  the time at which the holder received the document plus
+      expires_after seconds, if present; and
+
+   *  the time at which the holder received the document plus 2592000
+      seconds (30 days), in every case.
+
+   The last term bounds how long any copy can be relied on regardless of
+   what the document says.  A holder MUST NOT act on a document more
+   than 30 days after receiving it without refreshing it, even if
+   expires is later, and publishers SHOULD NOT set expires further ahead
+   than that.  This limits how long a copy the publisher cannot recall
+   (in a cache, a mirror, or on disk) can continue to assert something
+   the publisher has since withdrawn (Section 9.3).
+
+   For expires_after each holder uses its own receipt time, from
+   whichever source it fetched, so the obligation applies per hop.  As a
+   consequence, publishers SHOULD prefer to provide expires rather than
+   expires_after; expires_after is provided for use in situations where
+   regularly refreshing the expires timestamp is difficult.  A SAIL
+   document using expires_after and whose receipt time is unknown MUST
+   be treated as expired.
+
+   A consumer MUST NOT act on a document after its effective expiry,
+   regardless of HTTP cache state, except in cases where the origin is
+   unavailable.  Consumers using stale metadata in that situation SHOULD
+   exercise caution.  When a document expires, confirmations and
+   refutations (Section 7) alike lapse.
+
+   A consumer MAY refresh more often than expiry or HTTP freshness
+   require, but is not obliged to.  Publishers SHOULD, where feasible,
+   send HTTP freshness information (Cache-Control: max-age or Expires)
+   that agrees with the document's own expiry and in no case extends
+   beyond it.
+
+   Consumers MUST NOT refresh a non-expired SAIL document more
+   frequently than every 1800 seconds, regardless of other caching
+   signals.
+
+6.  Identity Claims
+
+   A service name is not by itself an identity.  Names are chosen freely
+   by each publisher, and nothing prevents two publishers, or a
+   publisher and an impostor, from using the same one.  The identity
+   that a SAIL document speaks to, and that a consumer confirms or
+   refutes, is the pair (origin of the SAIL document, service name).
+   Any trust or policy a consumer attaches to a service MUST be attached
+   to that pair, with the origin established by means outside the
+   request.
+
+   In particular, a URL carried in a request (such as the User-Agent
+   comment used for discovery in Section 3) tells a consumer only where
+   the sender says to look; it is not evidence of which origin is
+   authoritative for a name (Section 9.6).
+
+   The inferences in Section 7 apply to a request that _claims_ one of
+   the publisher's services.  For HTTP, that claim is carried in the
+   request's User-Agent header field (Section 10.1.5 of [RFC9110]); a
+   request claims service S when S's name appears there.  Publishers
+   SHOULD choose each service's name to be the product token its client
+   sends, and for crawlers the token it answers to in robots.txt
+   (Section 2.2.1 of [RFC9309]), so that one identifier serves
+   throughout.
+
+   [[EDNOTE: This is a little bit tricky because User-Agent headers
+   routinely contain lots of different things.  In practice, heuristic
+   libraries are used to interpret these values.  We should figure out
+   if there's something more definite we can say here.]]
+
+7.  Permissible Inferences
+
+   A SAIL document lets a consumer test a request's _claim_ to be one of
+   the publisher's services (Section 6) against the address the request
+   came from.  It provides a basis for exactly the following
+   conclusions, and for no others.
+
+   Confirmation:  A request that claims service S and originates from an
+      address within S's prefixes is supported by the SAIL metadata.  No
+      assertion (e.g. exhaustive or exclusive) is required beyond S
+      being listed.
+
+   Refutation by service (exhaustive):  If S is marked exhaustive, the
+      publisher has stated that S sends from nowhere else.  A request
+      claiming S from an address outside S's prefixes is therefore not
+      from the publisher, and the consumer MUST treat the claim as
+      refuted, MUST NOT extend to the request any treatment it reserves
+      for S, and MAY additionally reject the request.  Absent
+      exhaustive, no such conclusion follows; the listed prefixes are a
+      subset.  A consumer MAY nonetheless count the absence of a
+      matching prefix as a weak signal against the claim, for example as
+      one input to its own risk scoring, provided it does not reject or
+      otherwise treat the request as refuted on that basis alone.  A
+      service that has no prefixes (Section 4.3) and is marked
+      exhaustive is valid and means that the service currently sends
+      from nowhere, so every request claiming it is refuted.  A
+      publisher can use this to retire a service name, or to disown one
+      it has never used but sees being impersonated.
+
+   Refutation by prefix (exclusive):  If the prefix governing an address
+      (Section 4.4.3) is exclusive, the publisher has stated that none
+      of its other services send from there.  A request from that
+      address claiming any of the publisher's services _other than_
+      those associated with that prefix (or claiming any of them at all,
+      if the prefix has no associated service) is therefore not from the
+      publisher.  The consumer MUST treat the claim as refuted, MUST NOT
+      extend to the request any treatment it reserves for the claimed
+      service, and MAY additionally reject the request.  Absent
+      exclusive, no such conclusion follows.
+
+   Used together the two assertions close the mapping in both
+   directions: exhaustive says "this service of ours, only from here";
+   exclusive says "from here, only these services of ours".  Where
+   either refutation permits a consumer to reject the request, this
+   document does not specify the form the rejection takes (see the note
+   at the end of this section).
+
+   These conclusions serve permissive decisions as well as restrictive
+   ones.  A consumer MAY use confirmation to allowlist a service — for
+   example to exempt requests that claim S and arrive from S's prefixes
+   from challenges, rate limits, or blocks applied to other automated
+   traffic — just as it uses the refutations to deny impostors.  In
+   every case the decision is keyed on the pair of claimed identity and
+   source address, never on the address alone.
+
+   A SAIL document provides no basis for any of the following, and a
+   consumer that acts as though it did is acting on its own evidence,
+   outside this format (Section 9.2):
+
+   *  that traffic from a listed prefix which makes no identity claim,
+      or claims some other operator's identity, is from the publisher —
+      no key in the format speaks to unidentified traffic, and exclusive
+      concerns only which of the publisher's _own_ services use a
+      prefix, not who else does;
+
+   *  that the publisher owns, is the registered holder of, or is the
+      sole occupant of any prefix it lists;
+
+   *  anything about parties other than the publisher — two publishers
+      may list overlapping prefixes, each truthfully;
+
+   *  either refutation above when the corresponding flag is false or
+      absent.
+
+   [[EDNOTE: Open issue: We should define response error codes and a way
+   for signaling why SAIL metadata caused the request to be refused.]]
+
+8.  Publisher Responsibilities
+
+   The value of a SAIL document to consumers, and the safety of its
+   assertions, rest entirely on the publisher keeping it true.
+
+   Accuracy:  A publisher MUST NOT list prefixes it does not control,
+      nor any prefix from which its traffic cannot actually originate,
+      nor any prefix outside the space permitted by Section 4.4.2.  It
+      MUST NOT set exhaustive or exclusive unless the assertion is true
+      when published and is expected to remain true until the document's
+      effective expiry (Section 5).  In particular, a publisher SHOULD
+      add new egress addresses to the document, and allow the previously
+      published document's validity period to elapse, before an
+      exhaustive service begins sending from them.  A false assertion
+      harms no third party; its cost falls on the publisher's own
+      traffic and on consumers that wanted it (Section 9.3).
+
+   Completeness:  A publisher SHOULD set exhaustive on every service for
+      which it is true.  A document without it lets consumers confirm
+      genuine requests but never refute impostors, which forgoes the
+      format's main benefit.  A publisher MAY list, with no prefixes and
+      exhaustive set, names it has retired or has never used but sees
+      impersonated (Section 7), and MAY list, as an exclusive prefix set
+      that no service references, address space it holds but sends
+      nothing from (Section 4.3).
+
+   Shared address space:  Listing address space that the publisher
+      shares with other parties — a provider's general-purpose egress
+      pool, for example — allows those parties' traffic to be confirmed
+      as the publisher's services, since confirmation rests on source
+      address alone.  A publisher SHOULD prefer dedicated egress for any
+      service whose identity consumers are expected to act on, and
+      SHOULD NOT mark shared space exclusive: although the assertion
+      concerns only the publisher's own services and may be literally
+      true, it signals dedicated use and invites the over-reading
+      cautioned against in Section 9.2.
+
+   Stable origin:  Because consumers attach trust to the pair (origin,
+      service name) (Section 6), a publisher SHOULD serve its SAIL
+      document from one well-known origin, link to it from its crawler
+      documentation, and keep the host in its clients' User-Agent
+      comment stable, so that consumers can associate the pair once and
+      are not exposed to the confusion described in Section 9.6.
+
+   Other publisher requirements appear where they arise: location and
+   discovery in Section 3, choice of service names in Section 6,
+   canonical prefix form in Section 4.4.1, HTTP freshness in Section 5,
+   and granularity of disclosure in Section 9.4.
+
+9.  Security Considerations
+
+9.1.  Fetching from Request-Derived Locations
+
+   A consumer that derives the location of a SAIL document from the host
+   of the URL in a request's User-Agent comment (Section 3) is acting on
+   attacker-controlled input.  Any client can name any host, turning the
+   consumer into a fetcher of the attacker's choosing.  A consumer doing
+   so SHOULD NOT fetch inline with handling the triggering request, MUST
+   fetch only via "https" on port 443 at exactly the well-known path,
+   MUST rate-limit fetches, and SHOULD cache negative results, so that a
+   stream of requests naming fresh hosts cannot be used for request
+   amplification or to probe internal services.  Only the host of the
+   URL is used: any port, path, or query it carries is ignored, a URL
+   whose scheme is not "http" or "https" is ignored, and a consumer MUST
+   NOT fetch when the host is an IP literal.
+
+9.2.  Unverified Prefix Claims
+
+   Nothing in a SAIL document establishes that the publisher controls,
+   holds, or solely occupies any address it lists.  The format carries
+   no proof of holdership, and a careless or hostile publisher can list
+   space belonging to, or shared with, someone else.  The inferences in
+   Section 7 tolerate this because each is keyed on a claim of the
+   publisher's own identity: a wrong listing causes the publisher's
+   names to be honoured or refused in the wrong places and affects no
+   one else.  Any decision keyed on the address alone — admitting,
+   blocking, or labelling traffic from a listed prefix regardless of
+   what identity it claims — lacks that protection and lands on whoever
+   actually occupies the space.  A consumer that makes such a decision
+   is acting on its own evidence, outside this format, and should first
+   establish the publisher's control of the prefix by independent means
+   (for example forward-confirmed reverse DNS, or RPKI [RFC6480] or IRR
+   origin data), bearing in mind that control does not imply sole
+   occupancy.
+
+9.3.  False Assertions
+
+   A false exhaustive (the service in fact also sends from elsewhere) or
+   a false exclusive (another of the publisher's services in fact also
+   sends from the set) causes consumers to refuse genuine traffic from
+   the publisher the treatment it is due.  The harm falls on the
+   publisher, which is the party that made the assertion; third parties
+   are unaffected because neither assertion concerns them.  In-document
+   expiry (Section 5) bounds how long a once-true assertion can outlive
+   the deployment it described.
+
+9.4.  Infrastructure Disclosure
+
+   A SAIL document necessarily reveals something about the publisher's
+   egress.  Fine-grained prefix sets and service names can reveal
+   considerably more: data-centre footprint, provider relationships,
+   internal service boundaries, and the timing of deployments as entries
+   appear and disappear.  Publishers should treat the document as a
+   public interface and choose its granularity accordingly.
+
+9.5.  Redirected Documents
+
+   Because a document reached by redirect is attributed to the origin
+   that issued the redirect (Section 3), an origin can point its well-
+   known URI at some other publisher's document.  Doing so is self-
+   limiting: the redirecting origin thereby adopts that document's
+   prefixes and assertions as its own statement about its own service
+   names, and can cause only claims of (its own origin, name) to be
+   confirmed or refuted by them (Section 6).  It gains nothing it could
+   not have said directly, and the other publisher's names are
+   unaffected.
+
+9.6.  Counterfeit Documentation URLs
+
+   A SAIL document speaks for the origin at whose well-known URI it was
+   requested (Section 3), not for any product token that appears in it.
+   Nothing prevents an impostor from sending
+
+   User-Agent: AcmeBot/1.0 (+https://not-really-acme.example/bot.html)
+
+   and serving, at https://not-really-acme.example/.well-known/sail, a
+   well-formed document that lists the impostor's own addresses under a
+   service named AcmeBot with exhaustive = true.  A consumer that
+   derives the document's location from the User-Agent comment
+   (Section 3) and then checks the request against that document will
+   find the claim "confirmed" — correctly, in the narrow sense that the
+   operator of not-really-acme.example did send it — while learning
+   nothing about whether Acme did.
+
+   This is why Section 6 defines the identity as the pair (origin,
+   service name) and why a request-supplied URL is not evidence of
+   authority.  A consumer that has pinned (acme.example, AcmeBot) by
+   means outside the request is unaffected: the counterfeit document
+   speaks only for not-really-acme.example, and if Acme's genuine
+   document marks AcmeBot exhaustive, the impostor's request is refuted
+   by it regardless of what the counterfeit says, and the consumer
+   SHOULD act on that refutation.  A consumer with no pinned origin for
+   AcmeBot learns from the counterfeit document only that some party at
+   not-really-acme.example vouches for the request, and MUST NOT carry
+   over to it any standing it associates with Acme.  Section 8 advises
+   publishers on keeping their origin stable so that this confusion does
+   not arise for their own names.
+
+   [[EDNOTE: Should we discuss Forwarded and X-Forwarded-For headers?]]
+
+10.  IANA Considerations
+
+10.1.  Well-Known URI
+
+   IANA is requested to register the following in the "Well-Known URIs"
+   registry established by [RFC8615]:
+
+   URI suffix:  sail
+
+   Change controller:  IETF
+
+   Specification document(s):  this document, Section 3
+
+   Status:  permanent
+
+   Related information:  N/A
+
+10.2.  Media Type
+
+   IANA is requested to register the following in the "Media Types"
+   registry, per the procedure in [RFC6838]:
+
+   Type name:  application
+
+   Subtype name:  sail+toml
+
+   Required parameters:  N/A
+
+   Optional parameters:  N/A.  The format version is carried in-document
+      by the schema key (Section 4.3).
+
+   Encoding considerations:  8bit.  A SAIL document is TOML, which is
+      UTF-8 text (Section 4.1).
+
+   Security considerations:  see Section 9
+
+   Interoperability considerations:  Consumers accept a document that
+      parses and validates regardless of the Content-Type it was served
+      with (Section 3), to accommodate publishers on static hosting that
+      cannot set this type.
+
+   Published specification:  this document
+
+   Applications that use this media type:  operators of automated HTTP
+      clients publishing their egress addresses, and sites and
+      intermediaries verifying the claimed identity of automated
+      requests
+
+   Fragment identifier considerations:  N/A
+
+   Additional information:  Deprecated alias names for this type: N/A.
+      Magic number(s): N/A.  File extension(s): N/A.  Macintosh file
+      type code(s): N/A.
+
+   Person & email address to contact for further information:  see
+      Authors' Addresses
+
+   Intended usage:  COMMON
+
+   Restrictions on usage:  N/A
+
+   Author:  see Authors' Addresses
+
+   Change controller:  IETF
+
+10.3.  Structured Syntax Suffix
+
+   [[EDNOTE: +toml is not currently in the IANA "Structured Syntax
+   Suffixes" registry.  Either this document registers it per Section 6
+   of [RFC6838] (Name: TOML; +suffix: +toml; References: [TOML];
+   encoding, fragment identifier, and security considerations as for
+   TOML text; Contact and Change controller: IETF), or the media type
+   above falls back to a bare application/sail.  To be resolved before
+   this document progresses.]]
+
+11.  References
+
+11.1.  Normative References
+
+   [IANA-IPV4-SP]
+              IANA, "IANA IPv4 Special-Purpose Address Registry",
+              <https://www.iana.org/assignments/iana-ipv4-special-
+              registry/>.
+
+   [IANA-IPV6-SP]
+              IANA, "IANA IPv6 Special-Purpose Address Registry",
+              <https://www.iana.org/assignments/iana-ipv6-special-
+              registry/>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/rfc/rfc2119>.
+
+   [RFC3629]  Yergeau, F., "UTF-8, a transformation format of ISO
+              10646", STD 63, RFC 3629, DOI 10.17487/RFC3629, November
+              2003, <https://www.rfc-editor.org/rfc/rfc3629>.
+
+   [RFC4291]  Hinden, R. and S. Deering, "IP Version 6 Addressing
+              Architecture", RFC 4291, DOI 10.17487/RFC4291, February
+              2006, <https://www.rfc-editor.org/rfc/rfc4291>.
+
+   [RFC4632]  Fuller, V. and T. Li, "Classless Inter-domain Routing
+              (CIDR): The Internet Address Assignment and Aggregation
+              Plan", BCP 122, RFC 4632, DOI 10.17487/RFC4632, August
+              2006, <https://www.rfc-editor.org/rfc/rfc4632>.
+
+   [RFC5952]  Kawamura, S. and M. Kawashima, "A Recommendation for IPv6
+              Address Text Representation", RFC 5952,
+              DOI 10.17487/RFC5952, August 2010,
+              <https://www.rfc-editor.org/rfc/rfc5952>.
+
+   [RFC6890]  Cotton, M., Vegoda, L., Bonica, R., Ed., and B. Haberman,
+              "Special-Purpose IP Address Registries", BCP 153,
+              RFC 6890, DOI 10.17487/RFC6890, April 2013,
+              <https://www.rfc-editor.org/rfc/rfc6890>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
+
+   [RFC8615]  Nottingham, M., "Well-Known Uniform Resource Identifiers
+              (URIs)", RFC 8615, DOI 10.17487/RFC8615, May 2019,
+              <https://www.rfc-editor.org/rfc/rfc8615>.
+
+   [RFC9110]  Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke,
+              Ed., "HTTP Semantics", STD 97, RFC 9110,
+              DOI 10.17487/RFC9110, June 2022,
+              <https://www.rfc-editor.org/rfc/rfc9110>.
+
+   [RFC9111]  Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke,
+              Ed., "HTTP Caching", STD 98, RFC 9111,
+              DOI 10.17487/RFC9111, June 2022,
+              <https://www.rfc-editor.org/rfc/rfc9111>.
+
+   [RFC9309]  Koster, M., Illyes, G., Zeller, H., and L. Sassman,
+              "Robots Exclusion Protocol", RFC 9309,
+              DOI 10.17487/RFC9309, September 2022,
+              <https://www.rfc-editor.org/rfc/rfc9309>.
+
+   [TOML]     "TOML: Tom's Obvious Minimal Language, v1.0.0", 2021,
+              <https://toml.io/en/v1.0.0>.
+
+11.2.  Informative References
+
+   [CBCP]     "Crawler Best Practices", 2026,
+              <https://datatracker.ietf.org/doc/draft-illyes-aipref-
+              cbcp/>.
+
+   [RFC3056]  Carpenter, B. and K. Moore, "Connection of IPv6 Domains
+              via IPv4 Clouds", RFC 3056, DOI 10.17487/RFC3056, February
+              2001, <https://www.rfc-editor.org/rfc/rfc3056>.
+
+   [RFC3339]  Klyne, G. and C. Newman, "Date and Time on the Internet:
+              Timestamps", RFC 3339, DOI 10.17487/RFC3339, July 2002,
+              <https://www.rfc-editor.org/rfc/rfc3339>.
+
+   [RFC3849]  Huston, G., Lord, A., and P. Smith, "IPv6 Address Prefix
+              Reserved for Documentation", RFC 3849,
+              DOI 10.17487/RFC3849, July 2004,
+              <https://www.rfc-editor.org/rfc/rfc3849>.
+
+   [RFC4380]  Huitema, C., "Teredo: Tunneling IPv6 over UDP through
+              Network Address Translations (NATs)", RFC 4380,
+              DOI 10.17487/RFC4380, February 2006,
+              <https://www.rfc-editor.org/rfc/rfc4380>.
+
+   [RFC5737]  Arkko, J., Cotton, M., and L. Vegoda, "IPv4 Address Blocks
+              Reserved for Documentation", RFC 5737,
+              DOI 10.17487/RFC5737, January 2010,
+              <https://www.rfc-editor.org/rfc/rfc5737>.
+
+   [RFC5771]  Cotton, M., Vegoda, L., and D. Meyer, "IANA Guidelines for
+              IPv4 Multicast Address Assignments", BCP 51, RFC 5771,
+              DOI 10.17487/RFC5771, March 2010,
+              <https://www.rfc-editor.org/rfc/rfc5771>.
+
+   [RFC6052]  Bao, C., Huitema, C., Bagnulo, M., Boucadair, M., and X.
+              Li, "IPv6 Addressing of IPv4/IPv6 Translators", RFC 6052,
+              DOI 10.17487/RFC6052, October 2010,
+              <https://www.rfc-editor.org/rfc/rfc6052>.
+
+   [RFC6480]  Lepinski, M. and S. Kent, "An Infrastructure to Support
+              Secure Internet Routing", RFC 6480, DOI 10.17487/RFC6480,
+              February 2012, <https://www.rfc-editor.org/rfc/rfc6480>.
+
+   [RFC6838]  Freed, N., Klensin, J., and T. Hansen, "Media Type
+              Specifications and Registration Procedures", BCP 13,
+              RFC 6838, DOI 10.17487/RFC6838, January 2013,
+              <https://www.rfc-editor.org/rfc/rfc6838>.
+
+   [RFC7450]  Bumgardner, G., "Automatic Multicast Tunneling", RFC 7450,
+              DOI 10.17487/RFC7450, February 2015,
+              <https://www.rfc-editor.org/rfc/rfc7450>.
+
+   [RFC7526]  Troan, O. and B. Carpenter, Ed., "Deprecating the Anycast
+              Prefix for 6to4 Relay Routers", BCP 196, RFC 7526,
+              DOI 10.17487/RFC7526, May 2015,
+              <https://www.rfc-editor.org/rfc/rfc7526>.
+
+   [RFC7534]  Abley, J. and W. Sotomayor, "AS112 Nameserver Operations",
+              RFC 7534, DOI 10.17487/RFC7534, May 2015,
+              <https://www.rfc-editor.org/rfc/rfc7534>.
+
+   [RFC7535]  Abley, J., Dickson, B., Kumari, W., and G. Michaelson,
+              "AS112 Redirection Using DNAME", RFC 7535,
+              DOI 10.17487/RFC7535, May 2015,
+              <https://www.rfc-editor.org/rfc/rfc7535>.
+
+   [RFC8190]  Bonica, R., Cotton, M., Haberman, B., and L. Vegoda,
+              "Updates to the Special-Purpose IP Address Registries",
+              BCP 153, RFC 8190, DOI 10.17487/RFC8190, June 2017,
+              <https://www.rfc-editor.org/rfc/rfc8190>.
+
+   [RFC9421]  Backman, A., Ed., Richer, J., Ed., and M. Sporny, "HTTP
+              Message Signatures", RFC 9421, DOI 10.17487/RFC9421,
+              February 2024, <https://www.rfc-editor.org/rfc/rfc9421>.
+
+   [WBA-ARCH] "Web Bot Auth Architecture", 2026,
+              <https://datatracker.ietf.org/doc/draft-meunier-web-bot-
+              auth-architecture/>.
+
+Acknowledgments
+
+   TODO
+
+Author's Address
+
+   Kevin Kelley
+   Anthropic
+   Email: kelleyk@anthropic.com
